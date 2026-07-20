@@ -1,0 +1,95 @@
+import { useEffect, useState } from "react";
+
+function Profile() {
+
+const [profile, setProfile] = useState({});
+
+useEffect(() => {
+
+
+const username = localStorage.getItem("username");
+
+fetch(`http://127.0.0.1:8000/progress/${username}`)
+  .then((res) => res.json())
+  .then((data) => {
+    setProfile(data);
+  })
+  .catch((err) => console.log(err));
+
+
+}, []);
+
+return ( <div className="container mt-4">
+
+
+  <h1 className="text-center mb-4">
+    👤 Student Profile
+  </h1>
+
+  <div className="card shadow border-0 p-4">
+
+    <div className="text-center">
+      <h2>{profile.username || "Loading..."}</h2>
+
+      <p className="text-muted">
+        Python LMS Student
+      </p>
+    </div>
+
+    <hr />
+
+    <div className="row">
+
+      <div className="col-md-4 mb-3">
+        <div className="card shadow-sm text-center p-3">
+          <h4>🏆 Level</h4>
+          <h5>{profile.level || "Beginner"}</h5>
+        </div>
+      </div>
+
+      <div className="col-md-4 mb-3">
+        <div className="card shadow-sm text-center p-3">
+          <h4>⭐ Score</h4>
+          <h5>{profile.score ?? 0}</h5>
+        </div>
+      </div>
+
+      <div className="col-md-4 mb-3">
+        <div className="card shadow-sm text-center p-3">
+          <h4>📈 Progress</h4>
+          <h5>{profile.progress ?? 0}%</h5>
+        </div>
+      </div>
+
+      <div className="col-md-4 mb-3">
+        <div className="card shadow-sm text-center p-3">
+          <h4>🏅 Badge</h4>
+
+          <h5>
+            {(profile.score ?? 0) >= 25
+              ? "🥇 Gold Python Master"
+              : (profile.score ?? 0) >= 10
+              ? "🥈 Silver Coder"
+              : "🥉 Bronze Learner"}
+          </h5>
+        </div>
+      </div>
+
+      <div className="col-md-4 mb-3">
+        <div className="card shadow-sm text-center p-3">
+          <h4>🏆 Rank</h4>
+          <h5>#1</h5>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+);
+}
+
+export default Profile;
