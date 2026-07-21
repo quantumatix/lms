@@ -6,6 +6,8 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 from services.ai_service import generate_python_lesson, generate_python_mcqs, generate_python_challenge, generate_python_coding_challenges, generate_python_practice_exercises
+from services.openai_lesson_generator import generate_complete_lesson
+
 
 
 class LessonGenerationRequest(BaseModel):
@@ -195,10 +197,225 @@ def add_lesson(lesson: dict):
 
 @router.put("/lessons/{lesson_id}")
 def update_lesson(lesson_id: str, lesson: dict):
+    if "_id" in lesson:
+        del lesson["_id"]
+        
+    lesson["updated_at"] = datetime.now().isoformat()
     result = lessons_collection.update_one({"id": lesson_id}, {"$set": lesson})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Lesson not found")
+        
+    # Synchronize database collections (mcqs, coding_challenges, lesson_exercises)
+    if "mcq_quiz" in lesson:
+        mcqs_collection.delete_many({"lesson_id": lesson_id})
+        formatted_mcqs = []
+        for m in lesson["mcq_quiz"]:
+            formatted_mcqs.append({
+                "question": m.get("question") or "",
+                "options": m.get("options") or [],
+                "answer": m.get("answer") or "",
+                "explanation": m.get("explanation") or "",
+                "lesson_id": lesson_id,
+                "topic": lesson.get("title") or "Python Programming",
+                "difficulty": lesson.get("difficulty") or "Beginner",
+                "created_at": datetime.now().isoformat()
+            })
+        if formatted_mcqs:
+            mcqs_collection.insert_many(formatted_mcqs)
+            
+    if "coding_challenges" in lesson:
+        coding_challenges_collection.delete_many({"lesson_id": lesson_id})
+        formatted_ch = []
+        import uuid
+        for c in lesson["coding_challenges"]:
+            formatted_ch.append({
+                "id": c.get("id") or f"ch_{uuid.uuid4().hex[:8]}",
+                "lesson_id": lesson_id,
+                "topic": lesson.get("title") or "Python Programming",
+                "difficulty": lesson.get("difficulty") or "Beginner",
+                "title": c.get("title") or "Coding Challenge",
+                "problem": c.get("problem") or c.get("problem_statement") or "",
+                "starter_code": c.get("starter_code") or "",
+                "expected_output": c.get("expected_output") or "",
+                "sample_input": c.get("sample_input") or "",
+                "sample_output": c.get("sample_output") or "",
+                "hints": c.get("hints") or [],
+                "solution": c.get("solution") or "",
+                "explanation": c.get("explanation") or "",
+                "created_at": datetime.now().isoformat()
+            })
+        if formatted_ch:
+            coding_challenges_collection.insert_many(formatted_ch)
+            
+    if "practice_exercises" in lesson:
+        exercises_collection.delete_many({"lesson_id": lesson_id})
+        formatted_ex = []
+        import uuid
+        for ex in lesson["practice_exercises"]:
+            formatted_ex.append({
+                "id": ex.get("id") or f"ex_{uuid.uuid4().hex[:8]}",
+                "lesson_id": lesson_id,
+                "topic": lesson.get("title") or "Python Programming",
+                "difficulty": lesson.get("difficulty") or "Beginner",
+                "title": ex.get("title") or "Practice Exercise",
+                "type": ex.get("type") or "Short Answer",
+                "question": ex.get("question") or "",
+                "code": ex.get("code") or "",
+                "expected_answer": ex.get("expected_answer") or "",
+                "hint": ex.get("hint") or "",
+                "explanation": ex.get("explanation") or "",
+                "created_at": datetime.now().isoformat()
+            })
+        if formatted_ex:
+            exercises_collection.insert_many(formatted_ex)
+            
     return {"message": "Lesson updated successfully"}
+
+
+@router.post("/lessons/{lesson_id}/enhance")
+def enhance_lesson(lesson_id: str):
+    import uuid
+    # Check if lesson exists
+    existing_lesson = lessons_collection.find_one({"id": lesson_id})
+    if not existing_lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+        
+    topic = existing_lesson.get("title") or "Python Programming"
+    difficulty = existing_lesson.get("difficulty") or "Beginner"
+    
+    # Generate content using OpenAI
+    try:
+        data = generate_complete_lesson(lesson_id, topic, difficulty)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate lesson content: {str(e)}")
+        
+    # Clear existing entities for this lesson_id across collections
+    mcqs_collection.delete_many({"lesson_id": lesson_id})
+    coding_challenges_collection.delete_many({"lesson_id": lesson_id})
+    exercises_collection.delete_many({"lesson_id": lesson_id})
+    
+    # Format and save MCQs block
+    formatted_mcqs = []
+    for m in data.get("mcqs", []):
+        formatted_mcqs.append({
+            "question": str(m["question"]),
+            "options": list(m["options"]),
+            "answer": str(m["answer"]),
+            "explanation": str(m["explanation"]),
+            "lesson_id": lesson_id,
+            "topic": topic,
+            "difficulty": difficulty,
+            "created_at": datetime.now().isoformat()
+        })
+    if formatted_mcqs:
+        mcqs_collection.insert_many(formatted_mcqs)
+        
+    # Format and save Practice Questions
+    formatted_exercises = []
+    for i, q in enumerate(data.get("practice_questions", [])):
+        formatted_exercises.append({
+            "id": f"ex_{uuid.uuid4().hex[:8]}",
+            "lesson_id": lesson_id,
+            "topic": topic,
+            "difficulty": difficulty,
+            "title": f"Practice Question {i+1}",
+            "type": "Short Answer",
+            "question": str(q["question"]),
+            "code": "",
+            "expected_answer": str(q["solution"]),
+            "hint": "",
+            "explanation": "",
+            "created_at": datetime.now().isoformat()
+        })
+    if formatted_exercises:
+        exercises_collection.insert_many(formatted_exercises)
+        
+    # Format and save Coding Challenges
+    formatted_challenges = []
+    for c in data.get("coding_challenges", []):
+        formatted_challenges.append({
+            "id": f"ch_{uuid.uuid4().hex[:8]}",
+            "lesson_id": lesson_id,
+            "topic": topic,
+            "difficulty": difficulty,
+            "title": str(c["title"]),
+            "problem": str(c["problem_statement"]),
+            "starter_code": str(c["starter_code"]),
+            "expected_output": str(c["expected_output"]),
+            "sample_input": str(c.get("sample_input") or ""),
+            "sample_output": str(c.get("sample_output") or ""),
+            "hints": list(c.get("hints") or []),
+            "solution": str(c["solution"]),
+            "explanation": str(c["explanation"]),
+            "created_at": datetime.now().isoformat()
+        })
+    if formatted_challenges:
+        coding_challenges_collection.insert_many(formatted_challenges)
+        
+    # Compile updated parent lesson document
+    updated_fields = {
+        "title": data.get("title") or topic,
+        "description": data.get("description") or "",
+        "theory": data.get("theory") or "",
+        "xp_reward": data.get("xp_reward") or 100,
+        "difficulty": difficulty,
+        "code_examples": data.get("code_examples") or [],
+        "real_world_examples": data.get("real_world_examples") or [],
+        "common_mistakes": data.get("common_mistakes") or [],
+        "best_practices": data.get("best_practices") or [],
+        "summary": data.get("summary") or "",
+        "mcq_quiz": [
+            {
+                "question": m["question"],
+                "options": m["options"],
+                "answer": m["answer"],
+                "explanation": m["explanation"]
+            }
+            for m in formatted_mcqs
+        ],
+        "practice_exercises": [
+            {
+                "id": ex["id"],
+                "lesson_id": ex["lesson_id"],
+                "topic": ex["topic"],
+                "difficulty": ex["difficulty"],
+                "title": ex["title"],
+                "type": ex["type"],
+                "question": ex["question"],
+                "code": ex["code"],
+                "expected_answer": ex["expected_answer"],
+                "hint": ex["hint"],
+                "explanation": ex["explanation"],
+                "created_at": ex["created_at"]
+            }
+            for ex in formatted_exercises
+        ],
+        "practice_questions": [ex["question"] for ex in formatted_exercises],
+        "coding_challenges": [
+            {
+                "id": ch["id"],
+                "title": ch["title"],
+                "problem": ch["problem"],
+                "starter_code": ch["starter_code"],
+                "expected_output": ch["expected_output"],
+                "sample_input": ch["sample_input"],
+                "sample_output": ch["sample_output"],
+                "hints": ch["hints"],
+                "solution": ch["solution"],
+                "explanation": ch["explanation"]
+            }
+            for ch in formatted_challenges
+        ],
+        "updated_at": datetime.now().isoformat()
+    }
+    
+    # Merge/Update the lesson in MongoDB
+    lessons_collection.update_one({"id": lesson_id}, {"$set": updated_fields})
+    
+    # Fetch clean final lesson document for serialization
+    final_doc = lessons_collection.find_one({"id": lesson_id}, {"_id": 0})
+    return final_doc
+
 
 
 @router.delete("/lessons/{lesson_id}")
