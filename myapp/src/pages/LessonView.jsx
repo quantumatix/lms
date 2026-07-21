@@ -60,7 +60,7 @@ function LessonView() {
         setExerciseHints({});
         setExerciseExplanations({});
         if (data.coding_challenges && data.coding_challenges.length > 0) {
-          setCode(data.coding_challenges[0].initial_code || "# Write your solution here\n");
+          setCode(data.coding_challenges[0].initial_code || data.coding_challenges[0].starter_code || "# Write your solution here\n");
         }
       });
 
@@ -557,7 +557,7 @@ function LessonView() {
                                    key={idx} 
                                    onClick={() => {
                                       setCurrentChallengeIndex(idx);
-                                      setCode(lesson.coding_challenges[idx].initial_code || "# Write your code here\n");
+                                      setCode(lesson.coding_challenges[idx].initial_code || lesson.coding_challenges[idx].starter_code || "# Write your code here\n");
                                       setCodingResults(null);
                                    }}
                                    className={`rounded-circle cursor-pointer ${idx === currentChallengeIndex ? "bg-primary" : "bg-light"}`} 
@@ -567,7 +567,7 @@ function LessonView() {
                             </div>
                          </div>
                          <h4 className="fw-bold mb-3">{lesson.coding_challenges[currentChallengeIndex].title || "Coding Challenge"}</h4>
-                         <p className="text-muted leading-relaxed mb-4">{lesson.coding_challenges[currentChallengeIndex].challenge || lesson.coding_challenges[currentChallengeIndex].task}</p>
+                         <p className="text-muted leading-relaxed mb-4">{lesson.coding_challenges[currentChallengeIndex].challenge || lesson.coding_challenges[currentChallengeIndex].task || lesson.coding_challenges[currentChallengeIndex].problem}</p>
                          
                          <div className="bg-light p-4 rounded-4 border-start border-4 border-primary">
                             <div className="fw-bold text-primary mb-2 small d-flex align-items-center gap-2">
