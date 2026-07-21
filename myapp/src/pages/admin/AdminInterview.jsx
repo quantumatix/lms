@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import AdminLayout from "../../components/AdminLayout";
 import { Toast, useToast } from "../../components/Toast";
-import { Plus, Edit, Trash2, Save, X, MessageSquare, List } from "lucide-react";
+import { Plus, Edit, Trash2, Save, X, MessageSquare, List, Sparkles } from "lucide-react";
 
 const inputStyle = {
   width: "100%", padding: "10px 14px", border: "1.5px solid #e5e7eb",
@@ -19,6 +19,37 @@ function AdminInterview() {
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editIndex, setEditIndex] = useState(null);
+  
+  const [showAIModal, setShowAIModal] = useState(false);
+  const [aiCategory, setAiCategory] = useState("Beginner");
+  const [generatingAI, setGeneratingAI] = useState(false);
+
+  const handleAIGenerate = (e) => {
+    e.preventDefault();
+    setGeneratingAI(true);
+    fetch("http://127.0.0.1:8000/admin/ai/generate-interview-questions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        category: aiCategory,
+        number_of_questions: 5
+      })
+    })
+      .then(r => {
+        if (!r.ok) throw new Error("Failed to generate interview questions");
+        return r.json();
+      })
+      .then(() => {
+        setGeneratingAI(false);
+        setShowAIModal(false);
+        fetchQuestions();
+        addToast("5 Interview Questions generated successfully with AI!", "success");
+      })
+      .catch(err => {
+        setGeneratingAI(false);
+        addToast("Error: " + err.message, "error");
+      });
+  };
   
   const [formData, setFormData] = useState({ 
     id: "", category: "Beginner", question: "", ideal_answer: "", 
@@ -117,12 +148,23 @@ function AdminInterview() {
           <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#0f172a", margin: 0 }}>Interview Questions</h1>
           <p style={{ color: "#9ca3af", fontSize: "13px", margin: 0, marginTop: "4px" }}>Manage question bank for the mock interview simulator</p>
         </div>
-        <button
-          onClick={() => handleOpenModal()}
-          style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 20px", background: "linear-gradient(135deg,#0ea5e9,#0284c7)", color: "#fff", border: "none", borderRadius: "12px", fontWeight: 700, fontSize: "13px", cursor: "pointer", boxShadow: "0 4px 12px rgba(14,165,233,0.4)" }}
-        >
-          <Plus size={17} /> Add Question
-        </button>
+        <div style={{ display: "flex", gap: "10px" }}>
+          <button
+            onClick={() => {
+              setAiCategory("Beginner");
+              setShowAIModal(true);
+            }}
+            style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 20px", background: "linear-gradient(135deg,#a855f7,#7c3aed)", color: "#fff", border: "none", borderRadius: "12px", fontWeight: 700, fontSize: "13px", cursor: "pointer", boxShadow: "0 4px 12px rgba(168,85,247,0.4)" }}
+          >
+            <Sparkles size={17} /> AI Generate
+          </button>
+          <button
+            onClick={() => handleOpenModal()}
+            style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 20px", background: "linear-gradient(135deg,#0ea5e9,#0284c7)", color: "#fff", border: "none", borderRadius: "12px", fontWeight: 700, fontSize: "13px", cursor: "pointer", boxShadow: "0 4px 12px rgba(14,165,233,0.4)" }}
+          >
+            <Plus size={17} /> Add Question
+          </button>
+        </div>
       </div>
 
       <div style={{ background: "#fff", borderRadius: "14px", padding: "20px 24px", marginBottom: "20px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", border: "1px solid rgba(0,0,0,0.04)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -233,6 +275,60 @@ function AdminInterview() {
               <button type="submit" style={{ width: "100%", padding: "12px", background: "linear-gradient(135deg,#0ea5e9,#0284c7)", color: "#fff", border: "none", borderRadius: "12px", fontWeight: 700, fontSize: "14px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", boxShadow: "0 4px 12px rgba(14,165,233,0.4)" }}>
                 <Save size={16} /> Save Question
               </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* AI Generate Modal */}
+      {showAIModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.6)", backdropFilter: "blur(4px)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+          <div style={{ background: "#fff", borderRadius: "20px", width: "450px", padding: "30px", boxShadow: "0 25px 60px rgba(0,0,0,0.3)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", paddingBottom: "12px", borderBottom: "1px solid #f1f5f9" }}>
+              <div>
+                <h2 style={{ fontSize: "16px", fontWeight: 800, color: "#0f172a", margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
+                  <Sparkles size={20} style={{ color: "#a855f7" }} /> AI Interview Question Generator
+                </h2>
+                <p style={{ color: "#9ca3af", fontSize: "12px", margin: 0, marginTop: "2px" }}>Generate 5 mock interview questions</p>
+              </div>
+              <button type="button" onClick={() => setShowAIModal(false)} style={{ background: "#f1f5f9", border: "none", borderRadius: "8px", padding: "6px", cursor: "pointer" }}><X size={16} /></button>
+            </div>
+
+            <form onSubmit={handleAIGenerate}>
+              <div style={{ marginBottom: "24px" }}>
+                <label style={labelStyle}>Target Category / Difficulty</label>
+                <select
+                  style={inputStyle}
+                  value={aiCategory}
+                  onChange={e => setAiCategory(e.target.value)}
+                  disabled={generatingAI}
+                  required
+                >
+                  <option value="Beginner">Beginner</option>
+                  <option value="Intermediate">Intermediate</option>
+                  <option value="Advanced">Advanced</option>
+                  <option value="System Design">System Design</option>
+                  <option value="Behavioral">Behavioral</option>
+                </select>
+              </div>
+
+              <div style={{ display: "flex", gap: "10px" }}>
+                <button
+                  type="button"
+                  onClick={() => setShowAIModal(false)}
+                  disabled={generatingAI}
+                  style={{ flex: 1, padding: "12px", border: "1.5px solid #e5e7eb", borderRadius: "10px", fontWeight: 700, fontSize: "13px", cursor: "pointer", background: "transparent", color: "#6b7280" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={generatingAI}
+                  style={{ flex: 2, padding: "12px", background: "linear-gradient(135deg,#a855f7,#7c3aed)", color: "#fff", border: "none", borderRadius: "10px", fontWeight: 700, fontSize: "13px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", boxShadow: "0 4px 12px rgba(168,85,247,0.3)" }}
+                >
+                  {generatingAI ? "Generating..." : "Generate Questions"}
+                </button>
+              </div>
             </form>
           </div>
         </div>

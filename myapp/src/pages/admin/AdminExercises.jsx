@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import AdminLayout from "../../components/AdminLayout";
 import { Toast, useToast } from "../../components/Toast";
-import { Plus, Edit, Trash2, FileCode, Save, X } from "lucide-react";
+import { Plus, Edit, Trash2, FileCode, Save, X, Sparkles } from "lucide-react";
 
 const inputStyle = {
   width: "100%", padding: "10px 14px", border: "1.5px solid #e5e7eb",
@@ -21,6 +21,49 @@ function AdminExercises() {
   const [showModal, setShowModal] = useState(false);
   const [editExercise, setEditExercise] = useState(null);
   const [saving, setSaving] = useState(false);
+  
+  const [showAIModal, setShowAIModal] = useState(false);
+  const [aiLessonId, setAiLessonId] = useState("");
+  const [aiTopic, setAiTopic] = useState("");
+  const [aiDifficulty, setAiDifficulty] = useState("Beginner");
+  const [generatingAI, setGeneratingAI] = useState(false);
+
+  const handleAIGenerate = (e) => {
+    e.preventDefault();
+    if (!aiLessonId) {
+      addToast("Please select a lesson", "error");
+      return;
+    }
+    const currentLesson = lessons.find(l => l.id === aiLessonId);
+    const targetTopic = aiTopic || (currentLesson ? currentLesson.title : "Functions in Python");
+    const targetDiff = aiDifficulty || (currentLesson ? currentLesson.difficulty : "Beginner");
+
+    setGeneratingAI(true);
+    fetch("http://127.0.0.1:8000/admin/ai/generate-practice-exercises", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        topic: targetTopic,
+        difficulty: targetDiff,
+        number_of_exercises: 5,
+        lesson_id: aiLessonId
+      })
+    })
+      .then(r => {
+        if (!r.ok) throw new Error("Failed to generate exercises");
+        return r.json();
+      })
+      .then(() => {
+        setGeneratingAI(false);
+        setShowAIModal(false);
+        fetchExercises();
+        addToast("5 Practice Exercises generated successfully with AI!", "success");
+      })
+      .catch(err => {
+        setGeneratingAI(false);
+        addToast("Error: " + err.message, "error");
+      });
+  };
 
   const emptyForm = { id: "", lesson_id: "", title: "", type: "Output Prediction", question: "", code: "", expected_answer: "", hint: "", explanation: "" };
   const [formData, setFormData] = useState(emptyForm);
@@ -85,12 +128,25 @@ function AdminExercises() {
           <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#0f172a", margin: 0 }}>Exercise Management</h1>
           <p style={{ color: "#9ca3af", fontSize: "13px", margin: 0, marginTop: "4px" }}>Manage hands-on practice tasks for each lesson</p>
         </div>
-        <button
-          onClick={() => handleOpenModal()}
-          style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 20px", background: "linear-gradient(135deg,#0ea5e9,#0284c7)", color: "#fff", border: "none", borderRadius: "12px", fontWeight: 700, fontSize: "13px", cursor: "pointer", boxShadow: "0 4px 12px rgba(14,165,233,0.4)" }}
-        >
-          <Plus size={17} /> New Exercise
-        </button>
+        <div style={{ display: "flex", gap: "10px" }}>
+          <button
+            onClick={() => {
+              setAiLessonId(lessons[0]?.id || "");
+              setAiTopic(lessons[0]?.title || "");
+              setAiDifficulty(lessons[0]?.difficulty || "Beginner");
+              setShowAIModal(true);
+            }}
+            style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 20px", background: "linear-gradient(135deg,#a855f7,#7c3aed)", color: "#fff", border: "none", borderRadius: "12px", fontWeight: 700, fontSize: "13px", cursor: "pointer", boxShadow: "0 4px 12px rgba(168,85,247,0.4)" }}
+          >
+            <Sparkles size={17} /> AI Generate
+          </button>
+          <button
+            onClick={() => handleOpenModal()}
+            style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 20px", background: "linear-gradient(135deg,#0ea5e9,#0284c7)", color: "#fff", border: "none", borderRadius: "12px", fontWeight: 700, fontSize: "13px", cursor: "pointer", boxShadow: "0 4px 12px rgba(14,165,233,0.4)" }}
+          >
+            <Plus size={17} /> New Exercise
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -221,6 +277,91 @@ function AdminExercises() {
                 {saving ? <div className="spinner-border spinner-border-sm" /> : <Save size={16} />}
                 {saving ? "Saving..." : (editExercise ? "Update Exercise" : "Save Exercise")}
               </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* AI Generate Modal */}
+      {showAIModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.6)", backdropFilter: "blur(4px)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+          <div style={{ background: "#fff", borderRadius: "20px", width: "450px", padding: "30px", boxShadow: "0 25px 60px rgba(0,0,0,0.3)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", paddingBottom: "12px", borderBottom: "1px solid #f1f5f9" }}>
+              <div>
+                <h2 style={{ fontSize: "16px", fontWeight: 800, color: "#0f172a", margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
+                  <Sparkles size={20} style={{ color: "#a855f7" }} /> AI Exercise Generator
+                </h2>
+                <p style={{ color: "#9ca3af", fontSize: "12px", margin: 0, marginTop: "2px" }}>Generate 5 practice exercises for a lesson</p>
+              </div>
+              <button type="button" onClick={() => setShowAIModal(false)} style={{ background: "#f1f5f9", border: "none", borderRadius: "8px", padding: "6px", cursor: "pointer" }}><X size={16} /></button>
+            </div>
+
+            <form onSubmit={handleAIGenerate}>
+              <div style={{ marginBottom: "16px" }}>
+                <label style={labelStyle}>Target Lesson</label>
+                <select
+                  style={inputStyle}
+                  value={aiLessonId}
+                  onChange={e => {
+                    const lId = e.target.value;
+                    setAiLessonId(lId);
+                    const matching = lessons.find(l => l.id === lId);
+                    if (matching) {
+                      setAiTopic(matching.title || "");
+                      setAiDifficulty(matching.difficulty || "Beginner");
+                    }
+                  }}
+                  required
+                  disabled={generatingAI}
+                >
+                  <option value="">Select lesson...</option>
+                  {lessons.map(l => <option key={l.id} value={l.id}>{l.title}</option>)}
+                </select>
+              </div>
+
+              <div style={{ marginBottom: "16px" }}>
+                <label style={labelStyle}>Generation Topic</label>
+                <input
+                  style={inputStyle}
+                  placeholder="e.g. List Comprehensions, Decorators..."
+                  value={aiTopic}
+                  onChange={e => setAiTopic(e.target.value)}
+                  required
+                  disabled={generatingAI}
+                />
+              </div>
+
+              <div style={{ marginBottom: "24px" }}>
+                <label style={labelStyle}>Difficulty Level</label>
+                <select
+                  style={inputStyle}
+                  value={aiDifficulty}
+                  onChange={e => setAiDifficulty(e.target.value)}
+                  disabled={generatingAI}
+                >
+                  <option>Beginner</option>
+                  <option>Intermediate</option>
+                  <option>Advanced</option>
+                </select>
+              </div>
+
+              <div style={{ display: "flex", gap: "10px" }}>
+                <button
+                  type="button"
+                  onClick={() => setShowAIModal(false)}
+                  disabled={generatingAI}
+                  style={{ flex: 1, padding: "12px", border: "1.5px solid #e5e7eb", borderRadius: "10px", fontWeight: 700, fontSize: "13px", cursor: "pointer", background: "transparent", color: "#6b7280" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={generatingAI}
+                  style={{ flex: 2, padding: "12px", background: "linear-gradient(135deg,#a855f7,#7c3aed)", color: "#fff", border: "none", borderRadius: "10px", fontWeight: 700, fontSize: "13px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", boxShadow: "0 4px 12px rgba(168,85,247,0.3)" }}
+                >
+                  {generatingAI ? "Generating..." : "Generate Exercises"}
+                </button>
+              </div>
             </form>
           </div>
         </div>

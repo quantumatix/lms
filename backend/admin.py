@@ -43,6 +43,12 @@ class AIPracticeExerciseGenerationRequest(BaseModel):
 
 
 
+class AIInterviewQuestionsGenerationRequest(BaseModel):
+    category: str = "Beginner"
+    number_of_questions: int = 5
+
+
+
 class ChallengeGenerationRequest(BaseModel):
     topic: str
     difficulty: str = "Beginner"
@@ -1149,3 +1155,87 @@ def delete_admin_interview_question(question_id: str):
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Interview question not found")
     return {"message": "Interview question deleted successfully"}
+
+
+@router.post("/ai/generate-interview-questions")
+def ai_generate_interview_questions(request: AIInterviewQuestionsGenerationRequest):
+    try:
+        import json
+        import uuid
+        from services.openai_service import client, MODEL, clean_json_formatting, extract_list_from_json
+        
+        category = request.category
+        count = request.number_of_questions
+        
+        prompt = f"""
+Generate {count} Python mock interview questions for an interview question bank.
+Category: {category}
+
+For each question, formulate a comprehensive bank item in JSON format:
+- question: The interview question text. Make it realistic and specific to Python or software engineering concepts matching the category '{category}'.
+- ideal_answer: A detailed model answer that a candidate should ideally give.
+- keywords: A list of 4-6 specific technical key terms/phrases that must be inside the candidate's answer for scoring.
+- points: A list of 3-4 key conceptual details or hints that suggest missing content if not touched upon.
+
+Return ONLY a valid JSON object containing a "questions" key with list of question objects with this structure:
+{{
+  "questions": [
+    {{
+      "question": "...",
+      "ideal_answer": "...",
+      "keywords": ["...", "..."],
+      "points": ["...", "..."]
+    }}
+  ]
+}}
+
+Do not return markdown formatting blocks.
+Do not return any conversational text.
+Return ONLY the JSON.
+"""
+        response = client.chat.completions.create(
+            model=MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"}
+        )
+        response_text = response.choices[0].message.content.strip()
+        text = clean_json_formatting(response_text)
+        data = json.loads(text)
+        generated_list = extract_list_from_json(data)
+        
+        formatted_list = []
+        for item in generated_list:
+            q_text = item.get("question") or ""
+            ideal = item.get("ideal_answer") or ""
+            kws = item.get("keywords") or []
+            pts = item.get("points") or []
+            
+            if not isinstance(kws, list):
+                kws = [kws] if kws else []
+            if not isinstance(pts, list):
+                pts = [pts] if pts else []
+                
+            formatted = {
+                "id": f"int_{uuid.uuid4().hex[:8]}",
+                "category": category,
+                "question": str(q_text),
+                "ideal_answer": str(ideal),
+                "keywords": [str(k) for k in kws],
+                "points": [str(p) for p in pts],
+                "created_at": datetime.now().isoformat()
+            }
+            formatted_list.append(formatted)
+            
+        if not formatted_list:
+            raise HTTPException(status_code=500, detail="Failed to generate any interview questions")
+            
+        # Insert them into interview_questions_collection
+        interview_questions_collection.insert_many([dict(f) for f in formatted_list])
+        
+        return {
+            "message": "Interview Questions Generated Successfully",
+            "total": len(formatted_list),
+            "questions": formatted_list
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

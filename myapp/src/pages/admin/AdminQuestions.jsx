@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import AdminLayout from "../../components/AdminLayout";
 import { Toast, useToast } from "../../components/Toast";
-import { Plus, Edit, Trash2, HelpCircle, Save, X } from "lucide-react";
+import { Plus, Edit, Trash2, HelpCircle, Save, X, Sparkles } from "lucide-react";
 
 const inputStyle = {
   width: "100%", padding: "10px 14px", border: "1.5px solid #e5e7eb",
@@ -22,6 +22,39 @@ function AdminQuestions() {
   const [showModal, setShowModal] = useState(false);
   const [editIndex, setEditIndex] = useState(null);
   const [formData, setFormData] = useState({ question: "", options: ["", "", "", ""], answer: "", explanation: "" });
+  const [generating, setGenerating] = useState(false);
+
+  const handleAIGenerateMCQ = () => {
+    if (!selectedLessonId) return;
+    const currentLesson = lessons.find(l => l.id === selectedLessonId);
+    const targetTopic = currentLesson ? currentLesson.title : "Python programming context";
+    const targetDiff = currentLesson ? currentLesson.difficulty : "Beginner";
+    
+    setGenerating(true);
+    fetch("http://127.0.0.1:8000/admin/ai/generate-mcq", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        topic: targetTopic,
+        difficulty: targetDiff,
+        number_of_questions: 5,
+        lesson_id: selectedLessonId
+      })
+    })
+      .then(r => {
+        if (!r.ok) throw new Error("Failed to generate MCQs");
+        return r.json();
+      })
+      .then(() => {
+        setGenerating(false);
+        fetchQuestions();
+        addToast("5 MCQs generated successfully with AI!", "success");
+      })
+      .catch(err => {
+        setGenerating(false);
+        addToast("Error: " + err.message, "error");
+      });
+  };
 
   useEffect(() => {
     fetch("http://127.0.0.1:8000/lessons?username=admin@lms.com")
@@ -90,13 +123,22 @@ function AdminQuestions() {
           <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#0f172a", margin: 0 }}>MCQ Questions</h1>
           <p style={{ color: "#9ca3af", fontSize: "13px", margin: 0, marginTop: "4px" }}>Manage quiz questions for each lesson</p>
         </div>
-        <button
-          onClick={() => handleOpenModal()}
-          disabled={!selectedLessonId}
-          style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 20px", background: "linear-gradient(135deg,#f59e0b,#d97706)", color: "#fff", border: "none", borderRadius: "12px", fontWeight: 700, fontSize: "13px", cursor: "pointer", boxShadow: "0 4px 12px rgba(245,158,11,0.4)", opacity: !selectedLessonId ? 0.5 : 1 }}
-        >
-          <Plus size={17} /> Add MCQ
-        </button>
+        <div style={{ display: "flex", gap: "10px" }}>
+          <button
+            onClick={handleAIGenerateMCQ}
+            disabled={!selectedLessonId || generating}
+            style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 20px", background: "linear-gradient(135deg,#a855f7,#7c3aed)", color: "#fff", border: "none", borderRadius: "12px", fontWeight: 700, fontSize: "13px", cursor: "pointer", boxShadow: "0 4px 12px rgba(168,85,247,0.4)", opacity: (!selectedLessonId || generating) ? 0.6 : 1 }}
+          >
+            <Sparkles size={17} /> {generating ? "Generating..." : "AI Generate"}
+          </button>
+          <button
+            onClick={() => handleOpenModal()}
+            disabled={!selectedLessonId || generating}
+            style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 20px", background: "linear-gradient(135deg,#f59e0b,#d97706)", color: "#fff", border: "none", borderRadius: "12px", fontWeight: 700, fontSize: "13px", cursor: "pointer", boxShadow: "0 4px 12px rgba(245,158,11,0.4)", opacity: (!selectedLessonId || generating) ? 0.6 : 1 }}
+          >
+            <Plus size={17} /> Add MCQ
+          </button>
+        </div>
       </div>
 
       {/* Lesson Selector */}
