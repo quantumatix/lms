@@ -45,8 +45,15 @@ function LessonView() {
   const [exerciseHints, setExerciseHints] = useState({});
   const [exerciseExplanations, setExerciseExplanations] = useState({});
 
+  const currentChallenge = lesson?.coding_challenges?.[currentChallengeIndex] || {};
+
   useEffect(() => {
     setLoading(true);
+    setActiveTab("learn");
+    setCurrentChallengeIndex(0);
+    setCodingResults(null);
+    setCode("# Write your solution here\n");
+
     // Fetch current lesson
     fetch(`http://127.0.0.1:8000/lessons/${lessonId}?username=${username}`)
       .then(res => res.json())
@@ -566,15 +573,15 @@ function LessonView() {
                                ))}
                             </div>
                          </div>
-                         <h4 className="fw-bold mb-3">{lesson.coding_challenges[currentChallengeIndex].title || "Coding Challenge"}</h4>
-                         <p className="text-muted leading-relaxed mb-4">{lesson.coding_challenges[currentChallengeIndex].challenge || lesson.coding_challenges[currentChallengeIndex].task || lesson.coding_challenges[currentChallengeIndex].problem}</p>
+                         <h4 className="fw-bold mb-3">{currentChallenge.title || "Coding Challenge"}</h4>
+                         <p className="text-muted leading-relaxed mb-4">{currentChallenge.challenge || currentChallenge.task || currentChallenge.problem}</p>
                          
                          <div className="bg-light p-4 rounded-4 border-start border-4 border-primary">
                             <div className="fw-bold text-primary mb-2 small d-flex align-items-center gap-2">
                                <Lightbulb size={16} /> Key Hints
                             </div>
                             <ul className="small text-muted mb-0 ps-3">
-                               {(lesson.coding_challenges[currentChallengeIndex].hints || []).map((h, i) => <li key={i}>{h}</li>)}
+                               {(currentChallenge.hints || []).map((h, i) => <li key={i}>{h}</li>)}
                             </ul>
                          </div>
                       </div>
