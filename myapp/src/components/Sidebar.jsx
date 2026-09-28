@@ -47,8 +47,6 @@ function Sidebar() {
     { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { path: "/lessons", label: "Lessons", icon: BookOpen },
     { path: "/coding-practice", label: "Challenges", icon: Sword },
-    { path: "/daily-review", label: "Daily Review", icon: Target },
-    { path: "/mistakes", label: "Mistake Analysis", icon: AlertTriangle },
     { path: "/interview-prep", label: "Interview Prep", icon: UserCheck },
     { path: "/interview-generator", label: "Interview Generator", icon: Sparkles },
     { path: "/interview-session", label: "Interview Session", icon: Brain },
@@ -62,10 +60,8 @@ function Sidebar() {
 
   const adminItems = userRole === "admin" ? [
     { path: "/admin", label: "Admin Panel", icon: Settings },
-    { path: "/ai-generator", label: "AI Generator", icon: Sparkles }
-  ] : [
-    { path: "/ai-generator", label: "AI Generator", icon: Sparkles }
-  ];
+    { path: "/admin/ai-generator", label: "AI Generator", icon: Sparkles }
+  ] : [];
 
   const NavItem = ({ path, label, icon: IconComponent }) => {
     const isActive = location.pathname === path;
@@ -156,10 +152,14 @@ function Sidebar() {
           })}
         </div>
 
-        <div className="text-uppercase text-muted fw-bold mt-2 mb-2 px-3" style={{ fontSize: "10px" }}>Admin</div>
-        {adminItems.map((item) => (
-          <NavItem key={item.path} {...item} />
-        ))}
+        {userRole === "admin" && (
+          <>
+            <div className="text-uppercase text-muted fw-bold mt-2 mb-2 px-3" style={{ fontSize: "10px" }}>Admin</div>
+            {adminItems.map((item) => (
+              <NavItem key={item.path} {...item} />
+            ))}
+          </>
+        )}
       </div>
 
       <div className="mt-auto pt-3 border-top px-1">

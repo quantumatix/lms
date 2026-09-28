@@ -323,11 +323,6 @@ function Dashboard() {
                           </div>
                         </div>
                       ))}
-                      <div className="col-12 mt-2">
-                        <Link to="/mistakes" className="btn btn-link text-primary text-decoration-none p-0 small fw-bold">
-                          View All Mistakes <ChevronRight size={16} />
-                        </Link>
-                      </div>
                     </div>
                   )}
                 </div>
