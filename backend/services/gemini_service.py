@@ -1,3 +1,10 @@
+"""
+gemini_service.py — Gemini-backed AI content generation.
+
+All functions accept a `technology` parameter so the same service
+generates content for Python, Java, JavaScript, SQL, etc.
+"""
+
 import os
 import json
 from pathlib import Path
@@ -41,9 +48,24 @@ def clean_json_formatting(text: str) -> str:
     return text.strip()
 
 
-def generate_python_lesson(topic: str, difficulty: str = "Beginner"):
+def extract_list_from_json(data) -> list:
+    if isinstance(data, list):
+        return data
+    if isinstance(data, dict):
+        for key, value in data.items():
+            if isinstance(value, list):
+                return value
+        return [data]
+    return []
+
+
+# ─────────────────────────────────────────────
+# LESSON
+# ─────────────────────────────────────────────
+
+def generate_lesson(technology: str, topic: str, difficulty: str = "Beginner"):
     prompt = f"""
-Generate a complete Python lesson in JSON format.
+Generate a complete {technology} lesson in JSON format.
 
 Topic: {topic}
 Difficulty: {difficulty}
@@ -53,7 +75,7 @@ Return ONLY valid JSON with this structure:
 {{
   "title": "",
   "description": "",
-  "category": "Python",
+  "category": "{technology}",
   "difficulty": "{difficulty}",
   "theory": "",
   "code_examples": [
@@ -86,9 +108,13 @@ Return JSON only.
     return json.loads(text)
 
 
-def generate_python_mcqs(topic: str, count: int = 5, difficulty: str = "Beginner"):
+# ─────────────────────────────────────────────
+# MCQs
+# ─────────────────────────────────────────────
+
+def generate_mcqs(technology: str, topic: str, count: int = 5, difficulty: str = "Beginner"):
     prompt = f"""
-Generate {count} multiple choice questions (MCQ) for Python in JSON format.
+Generate {count} multiple choice questions (MCQ) for {technology} in JSON format.
 Topic: {topic}
 Difficulty: {difficulty}
 
@@ -112,9 +138,13 @@ Return JSON only.
     return json.loads(text)
 
 
-def generate_python_challenge(topic: str, difficulty: str = "Beginner"):
+# ─────────────────────────────────────────────
+# SINGLE CHALLENGE
+# ─────────────────────────────────────────────
+
+def generate_challenge(technology: str, topic: str, difficulty: str = "Beginner"):
     prompt = f"""
-Generate a Python programming coding challenge in JSON format.
+Generate a {technology} programming coding challenge in JSON format.
 Topic: {topic}
 Difficulty: {difficulty}
 
@@ -137,9 +167,13 @@ Return JSON only.
     return json.loads(text)
 
 
-def generate_python_coding_challenges(topic: str, difficulty: str = "Beginner", count: int = 3):
+# ─────────────────────────────────────────────
+# CODING CHALLENGES (bulk)
+# ─────────────────────────────────────────────
+
+def generate_coding_challenges(technology: str, topic: str, difficulty: str = "Beginner", count: int = 3):
     prompt = f"""
-Generate {count} Python programming coding challenges in JSON format.
+Generate {count} {technology} programming coding challenges in JSON format.
 Topic: {topic}
 Difficulty: {difficulty}
 
@@ -149,7 +183,7 @@ Return ONLY valid JSON as a list of challenges with this structure:
     "title": "Challenge Title",
     "problem": "Problem description showing constraints and requirements",
     "difficulty": "{difficulty}",
-    "starter_code": "Initial setup code, like def my_func():",
+    "starter_code": "Initial setup code",
     "expected_output": "The expected return output",
     "sample_input": "Format/Value of sample input",
     "sample_output": "Value/Stdout of sample output",
@@ -173,9 +207,13 @@ Return JSON only.
     return json.loads(text)
 
 
-def generate_python_practice_exercises(topic: str, difficulty: str = "Beginner", count: int = 5):
+# ─────────────────────────────────────────────
+# PRACTICE EXERCISES
+# ─────────────────────────────────────────────
+
+def generate_practice_exercises(technology: str, topic: str, difficulty: str = "Beginner", count: int = 5):
     prompt = f"""
-Generate {count} Python programming practice exercises in JSON format.
+Generate {count} {technology} programming practice exercises in JSON format.
 Topic: {topic}
 Difficulty: {difficulty}
 
@@ -190,9 +228,9 @@ Instructions:
 [
   {{
     "title": "Exercise Title",
-    "type": "Output Prediction" | "Fill in the Blank" | "Debug the Code" | "Short Coding Exercise" | "Code Completion",
+    "type": "Output Prediction",
     "question": "Question text explaining what needs to be done",
-    "code": "Python code block related to the question (use empty string if no code is needed)",
+    "code": "{technology} code block related to the question (use empty string if no code is needed)",
     "expected_answer": "The expected solution or answer",
     "hint": "Subtle hint to help the user",
     "explanation": "Detailed explanation of why the expected answer is correct"
@@ -214,37 +252,31 @@ Return JSON only.
     return json.loads(text)
 
 
+# ─────────────────────────────────────────────
+# FALLBACK QUESTIONS (used when AI call fails)
+# ─────────────────────────────────────────────
+
 FALLBACK_QUESTIONS = {
     "Technical": [
-        {"topic": "Data Types", "question": "What is the difference between mutable and immutable data types in Python? Give examples of both."},
-        {"topic": "Functions", "question": "Explain the difference between a function and a method in Python. How do you pass arguments by reference or value?"},
-        {"topic": "OOP", "question": "What is inheritance in Object-Oriented Programming, and how does Python support multiple inheritance?"},
-        {"topic": "Exception Handling", "question": "Explain the purpose of 'try', 'except', 'else', and 'finally' blocks in Python."},
-        {"topic": "File Handling", "question": "Explain the difference between 'r', 'w', 'a', and 'r+' file opening modes in Python."},
-        {"topic": "Loops", "question": "What is the differences between 'for' and 'while' loops, and when should you use an 'else' block with loops?"},
-        {"topic": "Modules", "question": "What is the difference between importing a module using 'import module_name' versus 'from module_name import function_name'?"},
-        {"topic": "Variables", "question": "What is variable shadowing in Python, and how do local and global scopes work?"},
-        {"topic": "Operators", "question": "What is the difference between the 'is' operator and the '==' operator in Python?"}
+        {"topic": "Data Types", "question": "What is the difference between mutable and immutable data types? Give examples of both."},
+        {"topic": "Functions", "question": "Explain the difference between a function and a method. How do you pass arguments by reference or value?"},
+        {"topic": "OOP", "question": "What is inheritance in Object-Oriented Programming? How does the language support multiple inheritance?"},
+        {"topic": "Exception Handling", "question": "Explain the purpose of try, catch/except, and finally blocks."},
+        {"topic": "Loops", "question": "What is the difference between for and while loops, and when would you use each?"},
     ],
     "Coding": [
-        {"topic": "Loops", "question": "Write a Python function that takes a list of numbers and returns the second largest number in the list without using built-in sorting functions."},
-        {"topic": "Functions", "question": "Write a recursive Python function to compute the factorial of a given number."},
-        {"topic": "OOP", "question": "Create a Python class 'Car' with attributes 'make', 'model', and 'year'. Add a method 'get_description' that returns a formatted string containing these attributes."},
-        {"topic": "File Handling", "question": "Write a Python script to read a file named 'data.txt' and count the frequency of each word, printing the results in descending order."},
-        {"topic": "Exception Handling", "question": "Write a Python snippet that prompts the user for age, raises a CustomException if the age is negative, and safely catches it."},
-        {"topic": "Data Types", "question": "Write a Python function to merge two dictionaries. If a key is present in both, sum their values."},
-        {"topic": "Variables", "question": "Write a Python script that swaps the values of two variables without using a third helper variable."}
+        {"topic": "Loops", "question": "Write a function that takes a list of numbers and returns the second largest number without using built-in sorting."},
+        {"topic": "Functions", "question": "Write a recursive function to compute the factorial of a given number."},
+        {"topic": "OOP", "question": "Create a class 'Car' with attributes 'make', 'model', and 'year'. Add a method 'get_description' returning a formatted string."},
+        {"topic": "Data Types", "question": "Write a function to merge two dictionaries. If a key is present in both, sum their values."},
     ],
     "Scenario": [
-        {"topic": "Exception Handling", "question": "You are writing a program to process payments. If the network goes down mid-step, how would you design your exception handling block to prevent double charging?"},
+        {"topic": "Exception Handling", "question": "You are writing a program to process payments. If the network goes down mid-step, how would you design your exception handling?"},
         {"topic": "OOP", "question": "If you are designing a dashboard system with different types of widgets, how would you use polymorphism to draw them dynamically?"},
-        {"topic": "File Handling", "question": "You need to process a huge log file (10GB) using Python. How would you read and parse the file without running out of RAM memory?"},
-        {"topic": "Modules", "question": "You are writing a modular application and find two files imports each other, causing a circular dependecy error. How would you refactor the code to fix this?"}
     ],
     "Behavioral": [
-        {"topic": "General", "question": "Describe a situation where you had to work on a Python codebase created by someone else. How did you get familiar with the code?"},
+        {"topic": "General", "question": "Describe a situation where you had to work on a codebase created by someone else. How did you get familiar with it?"},
         {"topic": "General", "question": "Tell me about a time you found a critical bug in code that was about to go live. What did you do?"},
-        {"topic": "General", "question": "How do you handle situations where a team member disagrees with your variable naming or function structure?"}
     ]
 }
 
@@ -252,26 +284,26 @@ FALLBACK_QUESTIONS = {
 def get_fallback_questions(username: str, difficulty: str, number_of_questions: int, profile: dict):
     weak_topics = profile.get("weak_topics", []) or []
     strong_topics = profile.get("strong_topics", []) or []
-    
+
     technical_count = round(number_of_questions * 0.40)
     coding_count = round(number_of_questions * 0.30)
     scenario_count = round(number_of_questions * 0.20)
     behavioral_count = number_of_questions - (technical_count + coding_count + scenario_count)
     if behavioral_count < 0:
         behavioral_count = 0
-        
+
     counts = {
         "Technical": technical_count,
         "Coding": coding_count,
         "Scenario": scenario_count,
         "Behavioral": behavioral_count
     }
-    
+
     selected_questions = []
-    
+
     for q_type, target_count in counts.items():
         pool = FALLBACK_QUESTIONS.get(q_type, [])
-        
+
         def sort_key(item_idx_pair):
             idx, q = item_idx_pair
             topic = q.get("topic")
@@ -281,10 +313,10 @@ def get_fallback_questions(username: str, difficulty: str, number_of_questions: 
                 return (2, idx)
             else:
                 return (1, idx)
-                
+
         enumerated_pool = list(enumerate(pool))
         sorted_enumerated = sorted(enumerated_pool, key=sort_key)
-        
+
         chunk = [q for idx, q in sorted_enumerated]
         for q in chunk[:target_count]:
             selected_questions.append({
@@ -292,27 +324,29 @@ def get_fallback_questions(username: str, difficulty: str, number_of_questions: 
                 "topic": q.get("topic"),
                 "question": f"[{difficulty}] {q.get('question')}"
             })
-            
+
     return selected_questions
 
 
-def generate_interview_questions(username: str, difficulty: str, number_of_questions: int, profile: dict):
+# ─────────────────────────────────────────────
+# INTERVIEW QUESTIONS (mock interview generation)
+# ─────────────────────────────────────────────
+
+def generate_interview_questions(username: str, difficulty: str, number_of_questions: int, profile: dict, technology: str = "Python"):
     weak_topics = profile.get("weak_topics", [])
     strong_topics = profile.get("strong_topics", [])
-    
-    # Calculate exact counts of questions according to key percentages:
-    # 40% Technical Theory, 30% Coding, 20% Scenario-based, 10% Behavioral
+
     technical_count = round(number_of_questions * 0.40)
     coding_count = round(number_of_questions * 0.30)
     scenario_count = round(number_of_questions * 0.20)
     behavioral_count = number_of_questions - (technical_count + coding_count + scenario_count)
-    
+
     if behavioral_count < 0:
         behavioral_count = 0
 
     try:
         prompt = f"""
-Generate a personalized Python mock interview in JSON format.
+Generate a personalized {technology} mock interview in JSON format.
 Student Name: {username}
 Selected Difficulty: {difficulty}
 
@@ -333,7 +367,7 @@ Question Distribution:
 Total questions to generate: {number_of_questions}
 
 Rules:
-1. Ground the questions in Python core concepts (Variables, Data Types, Operators, Loops, Functions, OOP, File Handling, Exception Handling, Modules).
+1. Ground the questions in {technology} core concepts relevant to the technology.
 2. The questions should match the difficulty level: {difficulty}.
 3. Prioritize setting the topic of the questions to the student's weak topics. Only use strong topics for a minority of the questions (e.g., 20-30%).
 4. For behavioral questions, the topic can be "General" or a specific professional aspect of programming.
@@ -344,12 +378,12 @@ Example output format:
   {{
     "type": "Technical",
     "topic": "OOP",
-    "question": "Describe encapsulation and how it is implemented in Python."
+    "question": "Describe encapsulation and how it is implemented in {technology}."
   }},
   {{
     "type": "Coding",
     "topic": "Loops",
-    "question": "Write a Python function to solve..."
+    "question": "Write a {technology} function to solve..."
   }},
   {{
     "type": "Scenario",
@@ -376,8 +410,11 @@ Return ONLY the JSON array.
         return get_fallback_questions(username, difficulty, number_of_questions, profile)
 
 
+# ─────────────────────────────────────────────
+# INTERVIEW EVALUATION
+# ─────────────────────────────────────────────
+
 def get_fallback_evaluation(qa_list: list):
-    # Simple hardcoded fallback values for robustness
     question_feedback = []
     total_score = 0
     max_total = 0
@@ -395,9 +432,9 @@ def get_fallback_evaluation(qa_list: list):
         })
         total_score += score
         max_total += 10
-    
+
     percentage = int((total_score / max_total) * 100) if max_total > 0 else 0
-    
+
     return {
         "overall_score": percentage,
         "percentage": percentage,
@@ -408,15 +445,15 @@ def get_fallback_evaluation(qa_list: list):
         "strengths": ["Variables", "Functions"],
         "weak_areas": ["Advanced OOP", "Error Management"],
         "recommended_topics": ["Classes", "Exceptions"],
-        "summary": "Fallback Evaluation. Good initial coding effort. Spend more time practicing scenario-based OOP questions.",
+        "summary": "Fallback Evaluation. Good initial coding effort. Spend more time practicing scenario-based questions.",
         "question_feedback": question_feedback
     }
 
 
-def evaluate_interview_session(qa_list: list):
+def evaluate_interview_session(qa_list: list, technology: str = "Python"):
     try:
         prompt = f"""
-Evaluate the following student answers from a Python mock interview.
+Evaluate the following student answers from a {technology} mock interview.
 
 Interview Q&A details:
 {json.dumps(qa_list, indent=2)}
@@ -471,4 +508,168 @@ Return ONLY the JSON.
         print(f"Gemini evaluation API error (fallback active): {str(e)}")
         return get_fallback_evaluation(qa_list)
 
-
+
+# ─────────────────────────────────────────────
+# INTERVIEW BANK QUESTIONS
+# ─────────────────────────────────────────────
+
+def generate_interview_bank_questions(technology: str, category: str, count: int = 5):
+    prompt = f"""
+Generate {count} {technology} mock interview questions for an interview question bank.
+Category: {category}
+
+For each question, formulate a comprehensive bank item:
+- question: Realistic question specific to {technology} and category '{category}'.
+- ideal_answer: A detailed model answer.
+- keywords: A list of 4-6 specific technical key terms that must be in the answer.
+- points: A list of 3-4 key conceptual details.
+
+Return ONLY a valid JSON array:
+[
+  {{
+    "question": "...",
+    "ideal_answer": "...",
+    "keywords": ["...", "..."],
+    "points": ["...", "..."]
+  }}
+]
+
+Do not return markdown formatting blocks.
+Do not return any conversational text.
+Return ONLY the JSON.
+"""
+    response = model.generate_content(prompt)
+    text = response.text.strip()
+    text = clean_json_formatting(text)
+    return json.loads(text)
+
+
+# ─────────────────────────────────────────────
+# ASSIGNMENTS
+# ─────────────────────────────────────────────
+
+def generate_assignments(technology: str, topic: str, difficulty: str = "Beginner", count: int = 3):
+    prompt = f"""
+Generate {count} {technology} programming assignments in JSON format.
+Topic: {topic}
+Difficulty: {difficulty}
+
+Return ONLY valid JSON as a list:
+[
+  {{
+    "title": "Assignment Title",
+    "description": "Detailed assignment description and requirements",
+    "objectives": ["Learning objective 1", "Learning objective 2"],
+    "tasks": ["Task 1", "Task 2", "Task 3"],
+    "deliverables": ["What to submit 1", "What to submit 2"],
+    "estimated_time": "e.g. 2-3 hours",
+    "difficulty": "{difficulty}",
+    "hints": ["Hint 1", "Hint 2"],
+    "evaluation_criteria": ["Criterion 1", "Criterion 2"]
+  }}
+]
+
+Do not return markdown.
+Return JSON only.
+"""
+    response = model.generate_content(prompt)
+    text = response.text.strip()
+    text = clean_json_formatting(text)
+    return json.loads(text)
+
+
+# ─────────────────────────────────────────────
+# PROJECTS
+# ─────────────────────────────────────────────
+
+def generate_projects(technology: str, topic: str, difficulty: str = "Beginner", count: int = 2):
+    prompt = f"""
+Generate {count} {technology} project ideas in JSON format.
+Topic: {topic}
+Difficulty: {difficulty}
+
+Return ONLY valid JSON as a list:
+[
+  {{
+    "title": "Project Title",
+    "description": "Detailed project description",
+    "features": ["Feature 1", "Feature 2", "Feature 3"],
+    "tech_stack": ["{technology}", "other tools if needed"],
+    "difficulty": "{difficulty}",
+    "estimated_time": "e.g. 1-2 weeks",
+    "learning_outcomes": ["Outcome 1", "Outcome 2"],
+    "steps": ["Step 1: ...", "Step 2: ...", "Step 3: ..."],
+    "extension_ideas": ["Optional extension 1", "Optional extension 2"]
+  }}
+]
+
+Do not return markdown.
+Return JSON only.
+"""
+    response = model.generate_content(prompt)
+    text = response.text.strip()
+    text = clean_json_formatting(text)
+    return json.loads(text)
+
+
+# ─────────────────────────────────────────────
+# REVISION MATERIAL
+# ─────────────────────────────────────────────
+
+def generate_revision_material(technology: str, topic: str, difficulty: str = "Beginner"):
+    prompt = f"""
+Generate a complete revision guide for {technology} in JSON format.
+Topic: {topic}
+Difficulty: {difficulty}
+
+Return ONLY valid JSON with this structure:
+{{
+  "title": "Revision: {topic}",
+  "technology": "{technology}",
+  "difficulty": "{difficulty}",
+  "summary": "A concise 2-3 sentence summary of the topic",
+  "key_concepts": [
+    {{
+      "concept": "Concept name",
+      "explanation": "Brief clear explanation",
+      "example": "Short code or text example"
+    }}
+  ],
+  "quick_reference": ["Quick tip 1", "Quick tip 2", "Quick tip 3"],
+  "common_pitfalls": ["Pitfall 1", "Pitfall 2"],
+  "practice_questions": [
+    {{
+      "question": "Quick revision question?",
+      "answer": "Expected answer"
+    }}
+  ],
+  "cheat_sheet": "Key syntax or rules formatted as a short text block"
+}}
+
+Do not return markdown.
+Return JSON only.
+"""
+    response = model.generate_content(prompt)
+    text = response.text.strip()
+    text = clean_json_formatting(text)
+    return json.loads(text)
+
+
+# ─────────────────────────────────────────────
+# BACKWARD-COMPATIBLE ALIASES (deprecated)
+# ─────────────────────────────────────────────
+
+def generate_python_lesson(topic: str, difficulty: str = "Beginner"):
+    return generate_lesson("Python", topic, difficulty)
+
+def generate_python_mcqs(topic: str, count: int = 5, difficulty: str = "Beginner"):
+    return generate_mcqs("Python", topic, count, difficulty)
+
+def generate_python_challenge(topic: str, difficulty: str = "Beginner"):
+    return generate_challenge("Python", topic, difficulty)
+
+def generate_python_coding_challenges(topic: str, difficulty: str = "Beginner", count: int = 3):
+    return generate_coding_challenges("Python", topic, difficulty, count)
+
+def generate_python_practice_exercises(topic: str, difficulty: str = "Beginner", count: int = 5):
+    return generate_practice_exercises("Python", topic, difficulty, count)

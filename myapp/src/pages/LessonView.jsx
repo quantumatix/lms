@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
+import { useCourse } from "../context/CourseContext";
 import Editor from "react-simple-code-editor";
 import { highlight, languages } from "prismjs/components/prism-core";
 import "prismjs/components/prism-python";
@@ -26,6 +27,7 @@ import {
 function LessonView() {
   const { lessonId } = useParams();
   const navigate = useNavigate();
+  const { selectedCourse } = useCourse();
   const [lesson, setLesson] = useState(null);
   const [allLessons, setAllLessons] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -71,10 +73,11 @@ function LessonView() {
         }
       });
 
-    // Fetch all lessons for the sidebar
-    fetch(`http://127.0.0.1:8000/lessons?username=${username}`)
+    // Fetch all lessons for the sidebar filtered by active course
+    const courseParam = selectedCourse?.id ? `&course_id=${selectedCourse.id}` : "";
+    fetch(`http://127.0.0.1:8000/lessons?username=${username}${courseParam}`)
       .then(res => res.json())
-      .then(data => setAllLessons(data));
+      .then(data => setAllLessons(Array.isArray(data) ? data : []));
       
     // Fetch exercises from dedicated endpoint
     fetch(`http://127.0.0.1:8000/lessons/${lessonId}/exercises`)
@@ -107,7 +110,7 @@ function LessonView() {
       {/* Lesson Navigation Sidebar */}
       <div className="bg-white border-end shadow-sm overflow-auto" style={{ width: "260px", marginLeft: "260px", height: "100vh", position: "fixed" }}>
         <div className="p-4 border-bottom bg-light">
-          <h6 className="fw-bold mb-0 text-dark uppercase" style={{ fontSize: "12px", letterSpacing: "1px" }}>Python Tutorial</h6>
+          <h6 className="fw-bold mb-0 text-dark uppercase" style={{ fontSize: "12px", letterSpacing: "1px" }}>{selectedCourse?.name || "Course"} Tutorial</h6>
         </div>
         <div className="py-2">
           {allLessons.map(cat => (
@@ -282,7 +285,7 @@ function LessonView() {
               <div className="bg-light p-5 rounded-4 mb-5 border shadow-sm">
                  <h4 className="fw-bold mb-4 d-flex align-items-center gap-2"><Layout size={24} className="text-primary" /> Lesson Summary</h4>
                  <div className="text-muted fs-5 leading-relaxed">
-                   {lesson.summary || "This lesson covered the foundational elements of Python syntax and best practices. Continue to practice to solidify your understanding."}
+                   {lesson.summary || `This lesson covered the foundational elements of ${selectedCourse?.technology || "programming"} syntax and best practices. Continue to practice to solidify your understanding.`}
                  </div>
               </div>
 

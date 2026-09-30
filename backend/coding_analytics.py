@@ -13,13 +13,20 @@ coding_results_collection = db["coding_results"]
 
 
 @router.get("/coding-analytics")
-def get_coding_analytics():
+def get_coding_analytics(course_id: str = None, username: str = None):
+    query = {}
+    if course_id:
+        query["course_id"] = course_id
+    if username:
+        query["username"] = username
 
-    total_attempts = coding_results_collection.count_documents({})
+    total_attempts = coding_results_collection.count_documents(query)
 
-    correct_answers = coding_results_collection.count_documents(
-        {"$or": [{"result": "Correct"}, {"status": "Passed"}]}
-    )
+    correct_query = {
+        **query,
+        "$or": [{"result": "Correct"}, {"status": "Passed"}]
+    }
+    correct_answers = coding_results_collection.count_documents(correct_query)
 
     accuracy = 0
 
@@ -33,4 +40,4 @@ def get_coding_analytics():
         "total_attempts": total_attempts,
         "correct_answers": correct_answers,
         "accuracy": accuracy
-    }
+    }

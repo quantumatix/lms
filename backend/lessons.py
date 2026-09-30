@@ -102,12 +102,18 @@ def seed_lessons():
     return {"message": "Lessons already seeded"}
 
 @router.get("/lessons")
-def get_lessons(username: str):
-    lessons = list(lessons_collection.find({}, {"_id": 0}))
-    user_p = list(user_progress_collection.find({"username": username}, {"_id": 0}))
-    
-    completed_ids = [p["lesson_id"] for p in user_p if p.get("status") == "completed"]
-    
+def get_lessons(username: str = None, course_id: str = None):
+    query = {}
+    if course_id:
+        query["course_id"] = course_id
+
+    lessons = list(lessons_collection.find(query, {"_id": 0}))
+    completed_ids = []
+    if username:
+        user_p = list(user_progress_collection.find({"username": username}, {"_id": 0}))
+        completed_ids = [p["lesson_id"] for p in user_p if p.get("status") == "completed"]
+
+
     # Group by category (Module)
     grouped = {}
     for lesson in lessons:
@@ -116,21 +122,21 @@ def get_lessons(username: str):
             cat_id = "generated"
             lesson["category_id"] = "generated"
             lesson["category_title"] = "AI Generated Lessons"
-            
+
         if cat_id not in grouped:
             grouped[cat_id] = {
                 "id": cat_id,
                 "title": lesson.get("category_title") or "Other Lessons",
                 "lessons": []
             }
-        
+
         lesson_id = lesson.get("id")
         if not lesson_id:
             import re
             title_slug = re.sub(r'[^a-zA-Z0-9]', '_', lesson.get("title", "").lower())
             lesson_id = f"gen_{title_slug}"
             lesson["id"] = lesson_id
-        
+
         lesson_summary = {
             "id": lesson_id,
             "title": lesson.get("title") or "Untitled Lesson",
@@ -140,8 +146,9 @@ def get_lessons(username: str):
             "completed": lesson_id in completed_ids
         }
         grouped[cat_id]["lessons"].append(lesson_summary)
-    
+
     return list(grouped.values())
+
 
 @router.get("/lessons/{lesson_id}")
 def get_lesson_detail(lesson_id: str, username: str):
@@ -236,9 +243,17 @@ def get_lesson_detail(lesson_id: str, username: str):
 def complete_lesson(data: dict):
     username = data["username"]
     lesson_id = data["lesson_id"]
+    lesson = lessons_collection.find_one({"id": lesson_id})
+    course_id = data.get("course_id") or (lesson.get("course_id") if lesson else "python-core") or "python-core"
     
     # Check if already completed
-    existing = user_progress_collection.find_one({"username": username, "lesson_id": lesson_id})
+    existing = user_progress_collection.find_one({
+        "username": username,
+        "lesson_id": lesson_id,
+        "course_id": course_id
+    })
+    if not existing:
+        existing = user_progress_collection.find_one({"username": username, "lesson_id": lesson_id})
     if existing and existing.get("status") == "completed":
         return {"message": "Lesson already completed"}
     
@@ -247,29 +262,36 @@ def complete_lesson(data: dict):
         {"username": username, "lesson_id": lesson_id},
         {"$set": {
             "status": "completed",
+            "course_id": course_id,
             "completed_at": datetime.now().isoformat()
         }},
         upsert=True
     )
     
-    # Update Overall Progress and XP
-    lesson = lessons_collection.find_one({"id": lesson_id})
+    # Update Overall Progress and XP for this course
     xp_to_add = lesson.get("xp_reward", 50) if lesson else 50
     
-    user_overall = overall_progress_collection.find_one({"username": username})
+    user_overall = overall_progress_collection.find_one({"username": username, "course_id": course_id})
+    if not user_overall and course_id == "python-core":
+        user_overall = overall_progress_collection.find_one({"username": username, "course_id": {"$exists": False}})
+
     if not user_overall:
-        user_overall = {"username": username, "xp": 0, "completed_topics": [], "progress": 0}
+        user_overall = {"username": username, "course_id": course_id, "xp": 0, "completed_topics": [], "progress": 0}
     
     completed_topics = user_overall.get("completed_topics", [])
     if lesson_id not in completed_topics:
         completed_topics.append(lesson_id)
     
-    total_lessons = lessons_collection.count_documents({})
-    new_progress = round((len(completed_topics) / total_lessons) * 100, 2) if total_lessons > 0 else 0
+    total_lessons = lessons_collection.count_documents({"course_id": course_id})
+    completed_count = user_progress_collection.count_documents(
+        {"username": username, "course_id": course_id, "status": "completed"}
+    )
+    new_progress = round((completed_count / total_lessons) * 100, 2) if total_lessons > 0 else 0
     
     overall_progress_collection.update_one(
-        {"username": username},
+        {"username": username, "course_id": course_id},
         {"$set": {
+            "course_id": course_id,
             "xp": user_overall.get("xp", 0) + xp_to_add,
             "completed_topics": completed_topics,
             "progress": new_progress,
@@ -281,19 +303,22 @@ def complete_lesson(data: dict):
     return {
         "message": "Lesson completed!",
         "xp_earned": xp_to_add,
-        "new_progress": new_progress
+        "new_progress": new_progress,
+        "course_id": course_id
     }
 
 @router.get("/lessons/recommendations/{username}")
-def get_lesson_recommendations(username: str):
-    # Get weak topics from the existing endpoint logic
-    # (In a real scenario, we might import the function, but for now we'll mimic it)
+def get_lesson_recommendations(username: str, course_id: str = None):
+    cid = course_id or "python-core"
     mistakes_collection = db["mcq_mistakes"]
-    mistakes = list(mistakes_collection.find({"username": username}))
+    mistake_query = {"username": username}
+    if course_id:
+        mistake_query["course_id"] = course_id
+    mistakes = list(mistakes_collection.find(mistake_query))
     
     weak_keywords = []
     for m in mistakes:
-        q = m["question"].lower()
+        q = m.get("question", "").lower()
         if "loop" in q: weak_keywords.append("loops")
         elif "function" in q: weak_keywords.append("functions")
         elif "variable" in q: weak_keywords.append("vars")
@@ -303,10 +328,22 @@ def get_lesson_recommendations(username: str):
     recommended_lessons = []
     if weak_keywords:
         recommended_lessons = list(lessons_collection.find(
-            {"id": {"$in": list(set(weak_keywords))}},
-            {"_id": 0, "id": 1, "title": 1, "category_title": 1}
+            {"course_id": cid, "id": {"$in": list(set(weak_keywords))}},
+            {"_id": 0, "id": 1, "title": 1, "category_title": 1, "course_id": 1}
         ))
     
+    # If no mistake-based recommendations found, recommend the first 3 uncompleted lessons of this course
+    if not recommended_lessons:
+        completed = list(user_progress_collection.find(
+            {"username": username, "course_id": cid, "status": "completed"},
+            {"lesson_id": 1}
+        ))
+        completed_ids = [c["lesson_id"] for c in completed]
+        recommended_lessons = list(lessons_collection.find(
+            {"course_id": cid, "id": {"$nin": completed_ids}},
+            {"_id": 0, "id": 1, "title": 1, "category_title": 1, "course_id": 1}
+        ).limit(3))
+        
     return recommended_lessons
 
 @router.get("/lessons/{lesson_id}/exercises")

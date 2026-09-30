@@ -7,11 +7,14 @@ client = MongoClient("mongodb://localhost:27017")
 db = client["lms_database"]
 
 @router.get("/highest-score/{username}")
-def highest_score(username: str):
+def highest_score(username: str, course_id: str = None):
+    query = {"username": username}
+    if course_id:
+        query["course_id"] = course_id
 
     results = list(
         db["mcq_results"].find(
-            {"username": username},
+            query,
             {"_id": 0}
         )
     )
@@ -19,6 +22,6 @@ def highest_score(username: str):
     if not results:
         return {"highest_score": 0}
 
-    highest = max(item["score"] for item in results)
+    highest = max(item.get("score", 0) for item in results)
 
-    return {"highest_score": highest}
+    return {"highest_score": highest}

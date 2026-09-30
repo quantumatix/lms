@@ -19,24 +19,27 @@ import {
   Brain,
   FileText
 } from "lucide-react";
+import { useCourse } from "../context/CourseContext";
 
 function Sidebar() {
   const username = localStorage.getItem("username") || "Learner";
   const userRole = localStorage.getItem("userRole");
   const location = useLocation();
   const [curriculum, setCurriculum] = useState([]);
+  const { selectedCourse, setSelectedCourse, courses } = useCourse();
 
   useEffect(() => {
-    // We fetch a flat list of all lessons for the curriculum sidebar
-    fetch(`http://127.0.0.1:8000/lessons?username=${username}`)
+    // Clear curriculum immediately so previous course lessons don't linger
+    setCurriculum([]);
+    const courseParam = selectedCourse?.id ? `&course_id=${selectedCourse.id}` : "";
+    fetch(`http://127.0.0.1:8000/lessons?username=${username}${courseParam}`)
       .then(res => res.json())
       .then(data => {
-        // Flatten categories into a single list of lessons
-        const allLessons = data.flatMap(cat => cat.lessons);
+        const allLessons = Array.isArray(data) ? data.flatMap(cat => cat.lessons || []) : [];
         setCurriculum(allLessons);
       })
       .catch(err => console.log(err));
-  }, [username]);
+  }, [username, selectedCourse?.id]);
 
   const handleLogout = () => {
     localStorage.clear();
@@ -105,12 +108,21 @@ function Sidebar() {
       </div>
 
       <div className="mb-3 px-1">
-        <div className="d-flex align-items-center justify-content-between rounded-3 px-3 py-2 bg-light border">
-          <div className="d-flex align-items-center gap-2">
-            <BookOpen size={16} className="text-primary" />
-            <span className="fw-semibold text-dark small">Python Core</span>
-          </div>
-          <ChevronDown size={14} className="text-muted" />
+        <div className="d-flex align-items-center gap-2 rounded-3 px-3 py-2 bg-light border">
+          <BookOpen size={16} className="text-primary flex-shrink-0" />
+          <select
+            value={selectedCourse?.id || "python-core"}
+            onChange={(e) => {
+              const course = courses.find(c => c.id === e.target.value);
+              if (course) setSelectedCourse(course);
+            }}
+            className="form-select form-select-sm border-0 bg-transparent fw-semibold text-dark p-0"
+            style={{ fontSize: "13px", boxShadow: "none", cursor: "pointer" }}
+          >
+            {courses.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
         </div>
       </div>
 

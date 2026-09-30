@@ -10,13 +10,16 @@ mistakes_collection = db["mcq_mistakes"]
 
 
 @router.get("/retry-review/{username}")
-def retry_review(username: str):
+def retry_review(username: str, course_id: str = None):
+    query = {"username": username}
+    if course_id:
+        query["course_id"] = course_id
 
     mistakes = list(
         mistakes_collection.find(
-            {"username": username},
+            query,
             {"_id": 0}
         )
     )
 
-    return mistakes
+    return mistakes

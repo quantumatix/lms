@@ -7,11 +7,14 @@ client = MongoClient("mongodb://localhost:27017")
 db = client["lms_database"]
 
 @router.get("/score-history/{username}")
-def get_score_history(username: str):
+def get_score_history(username: str, course_id: str = None):
+    query = {"username": username}
+    if course_id:
+        query["course_id"] = course_id
 
     results = list(
         db["mcq_results"].find(
-            {"username": username},
+            query,
             {"_id": 0}
         )
     )
@@ -24,4 +27,4 @@ def get_score_history(username: str):
             "score": result.get("score", 0)
         })
 
-    return chart_data
+    return chart_data

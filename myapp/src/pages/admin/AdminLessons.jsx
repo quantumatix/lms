@@ -35,6 +35,8 @@ const labelStyle = {
 function AdminLessons() {
   const { toasts, addToast, removeToast } = useToast();
   const [lessons, setLessons] = useState([]);
+  const [courses, setCourses] = useState([]);
+  const [selectedCourseId, setSelectedCourseId] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -52,7 +54,21 @@ function AdminLessons() {
   const [showAIModal, setShowAIModal] = useState(false);
   const [aiTopic, setAiTopic] = useState("");
   const [aiDifficulty, setAiDifficulty] = useState("Beginner");
+  const [aiCourseId, setAiCourseId] = useState("python-core");
   const [generating, setGenerating] = useState(false);
+
+  useEffect(() => {
+    fetch("http://127.0.0.1:8000/admin/courses")
+      .then(r => r.json())
+      .then(d => {
+        if (Array.isArray(d) && d.length > 0) {
+          setCourses(d);
+          setSelectedCourseId(d[0].id);
+          setAiCourseId(d[0].id);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const handleAIGenerate = (e) => {
     e.preventDefault();
@@ -64,7 +80,11 @@ function AdminLessons() {
     fetch("http://127.0.0.1:8000/admin/ai/generate-lesson", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ topic: aiTopic, difficulty: aiDifficulty })
+      body: JSON.stringify({ 
+        topic: aiTopic, 
+        difficulty: aiDifficulty,
+        course_id: aiCourseId || selectedCourseId || "python-core"
+      })
     })
       .then(r => {
         if (!r.ok) {
@@ -76,7 +96,7 @@ function AdminLessons() {
         setGenerating(false);
         setShowAIModal(false);
         setAiTopic("");
-        fetchLessons();
+        fetchLessons(selectedCourseId);
         addToast("Lesson generated successfully with AI!", "success");
       })
       .catch(err => {
@@ -110,18 +130,21 @@ function AdminLessons() {
   };
 
   const emptyForm = {
-    id: "", title: "", category_id: "fundamentals", category_title: "Python Fundamentals",
+    id: "", course_id: "python-core", title: "", category_id: "fundamentals", category_title: "Fundamentals",
     description: "", theory: "", xp_reward: 100, difficulty: "Beginner",
     code_examples: [], common_mistakes: [], best_practices: [], summary: "",
     real_world_examples: [], practice_questions: [], mcq_quiz: [], coding_challenges: []
   };
   const [formData, setFormData] = useState(emptyForm);
 
-  useEffect(() => { fetchLessons(); }, []);
+  useEffect(() => { 
+    fetchLessons(selectedCourseId); 
+  }, [selectedCourseId]);
 
-  const fetchLessons = () => {
+  const fetchLessons = (courseId = selectedCourseId) => {
     setLoading(true);
-    fetch("http://127.0.0.1:8000/admin/lessons")
+    const param = courseId ? `?course_id=${courseId}` : "";
+    fetch(`http://127.0.0.1:8000/admin/lessons${param}`)
       .then(r => r.json())
       .then(d => { setLessons(Array.isArray(d) ? d : []); setLoading(false); })
       .catch(() => setLoading(false));
@@ -136,6 +159,7 @@ function AdminLessons() {
         .then(detail => {
           setFormData({
             id: detail.id || "",
+            course_id: detail.course_id || lesson.course_id || selectedCourseId || "python-core",
             title: detail.title || "",
             category_id: detail.category_id || "",
             category_title: detail.category_title || "",
@@ -157,7 +181,13 @@ function AdminLessons() {
         });
     } else {
       setEditLesson(null);
-      setFormData({ ...emptyForm, id: `lesson_${Date.now()}` });
+      const activeCourse = courses.find(c => c.id === selectedCourseId);
+      setFormData({ 
+        ...emptyForm, 
+        id: `lesson_${Date.now()}`,
+        course_id: selectedCourseId || (courses[0]?.id || "python-core"),
+        category_title: activeCourse ? `${activeCourse.name} Fundamentals` : "Fundamentals"
+      });
       setShowModal(true);
     }
   };
@@ -169,10 +199,14 @@ function AdminLessons() {
     const url = editLesson
       ? `http://127.0.0.1:8000/admin/lessons/${editLesson.id}`
       : "http://127.0.0.1:8000/admin/lessons";
-    fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(formData) })
+    const payload = {
+      ...formData,
+      course_id: formData.course_id || selectedCourseId || "python-core"
+    };
+    fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
       .then(r => r.json())
       .then(() => {
-        setShowModal(false); setSaving(false); fetchLessons();
+        setShowModal(false); setSaving(false); fetchLessons(selectedCourseId);
         addToast(editLesson ? "Lesson updated successfully!" : "Lesson created successfully!", "success");
       })
       .catch(err => { setSaving(false); addToast("Error saving lesson: " + err.message, "error"); });
@@ -209,11 +243,14 @@ function AdminLessons() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "28px" }}>
         <div>
           <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#0f172a", margin: 0 }}>Lesson Management</h1>
-          <p style={{ color: "#9ca3af", fontSize: "13px", margin: 0, marginTop: "4px" }}>Create and manage your Python curriculum modules</p>
+          <p style={{ color: "#9ca3af", fontSize: "13px", margin: 0, marginTop: "4px" }}>Create and manage curriculum modules by course</p>
         </div>
         <div style={{ display: "flex", gap: "10px" }}>
           <button
-            onClick={() => setShowAIModal(true)}
+            onClick={() => {
+              setAiCourseId(selectedCourseId || (courses[0]?.id || "python-core"));
+              setShowAIModal(true);
+            }}
             style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 20px", background: "linear-gradient(135deg,#a855f7,#7c3aed)", color: "#fff", border: "none", borderRadius: "12px", fontWeight: 700, fontSize: "13px", cursor: "pointer", boxShadow: "0 4px 12px rgba(168,85,247,0.4)" }}
           >
             <Sparkles size={17} /> AI Auto-Generate
@@ -228,16 +265,37 @@ function AdminLessons() {
       </div>
 
       <div style={sectionStyle}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "#f8fafc", borderRadius: "10px", padding: "8px 14px", maxWidth: "360px", flex: 1 }}>
-            <Search size={16} style={{ color: "#9ca3af" }} />
-            <input
-              type="text"
-              placeholder="Search lessons..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              style={{ border: "none", background: "transparent", outline: "none", fontSize: "13px", width: "100%", color: "#374151" }}
-            />
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", flexWrap: "wrap", gap: "12px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: 1, maxWidth: "600px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "#f8fafc", borderRadius: "10px", padding: "8px 14px", flex: 1 }}>
+              <Search size={16} style={{ color: "#9ca3af" }} />
+              <input
+                type="text"
+                placeholder="Search lessons..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                style={{ border: "none", background: "transparent", outline: "none", fontSize: "13px", width: "100%", color: "#374151" }}
+              />
+            </div>
+            <select
+              value={selectedCourseId}
+              onChange={(e) => setSelectedCourseId(e.target.value)}
+              style={{
+                padding: "8px 14px",
+                border: "1.5px solid #e5e7eb",
+                borderRadius: "10px",
+                fontSize: "13px",
+                outline: "none",
+                fontWeight: 600,
+                color: "#1e293b",
+                backgroundColor: "#fff"
+              }}
+            >
+              <option value="">All Courses</option>
+              {courses.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
           </div>
           <span style={{ background: "#eef2ff", color: "#6366f1", fontWeight: 700, fontSize: "12px", padding: "5px 14px", borderRadius: "20px" }}>
             {filteredLessons.length} Lessons
@@ -257,7 +315,17 @@ function AdminLessons() {
               {loading ? (
                 <tr><td colSpan="7" style={{ textAlign: "center", padding: "40px" }}><div className="spinner-border spinner-border-sm text-primary" /></td></tr>
               ) : filteredLessons.length === 0 ? (
-                <tr><td colSpan="7" style={{ textAlign: "center", padding: "40px", color: "#9ca3af" }}>No lessons found.</td></tr>
+                <tr>
+                  <td colSpan="7" style={{ textAlign: "center", padding: "50px", color: "#9ca3af" }}>
+                    <BookOpen size={40} style={{ color: "#d1d5db", marginBottom: "10px", display: "inline-block" }} />
+                    <div style={{ fontSize: "15px", fontWeight: 600, color: "#64748b" }}>
+                      No lessons available for this course yet.
+                    </div>
+                    <div style={{ fontSize: "12px", color: "#94a3b8", marginTop: "4px" }}>
+                      Use &ldquo;AI Auto-Generate&rdquo; or &ldquo;Add Lesson&rdquo; to add lessons to this course.
+                    </div>
+                  </td>
+                </tr>
               ) : filteredLessons.map((lesson) => {
                 const { bg, color } = diffBadge(lesson.difficulty);
                 return (
@@ -381,6 +449,20 @@ function AdminLessons() {
 
             <form onSubmit={handleAIGenerate}>
               <div style={{ marginBottom: "16px" }}>
+                <label style={labelStyle}>Target Course</label>
+                <select
+                  style={inputStyle}
+                  value={aiCourseId}
+                  onChange={e => setAiCourseId(e.target.value)}
+                  disabled={generating}
+                >
+                  {courses.map(c => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.technology})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ marginBottom: "16px" }}>
                 <label style={labelStyle}>Generation Topic</label>
                 <input
                   style={inputStyle}
@@ -477,6 +559,19 @@ function AdminLessons() {
               {activeTab === "general" && (
                 <div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px", marginBottom: "16px" }}>
+                    <div>
+                      <label style={labelStyle}>Target Course</label>
+                      <select 
+                        style={inputStyle} 
+                        value={formData.course_id || selectedCourseId} 
+                        onChange={e => setFormData({ ...formData, course_id: e.target.value })} 
+                        required
+                      >
+                        {courses.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
                     <div>
                       <label style={labelStyle}>Lesson ID</label>
                       <input style={inputStyle} value={formData.id} onChange={e => setFormData({ ...formData, id: e.target.value })} disabled={!!editLesson} required />

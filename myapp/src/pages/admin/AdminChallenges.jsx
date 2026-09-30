@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import AdminLayout from "../../components/AdminLayout";
 import { Toast, useToast } from "../../components/Toast";
-import { Plus, Edit, Trash2, Code2, Save, X, Lightbulb } from "lucide-react";
+import { Plus, Edit, Trash2, Code2, Save, X, Lightbulb, BookOpen } from "lucide-react";
 
 const inputStyle = {
   width: "100%", padding: "10px 14px", border: "1.5px solid #e5e7eb",
@@ -15,6 +15,8 @@ const labelStyle = {
 
 function AdminChallenges() {
   const { toasts, addToast, removeToast } = useToast();
+  const [courses, setCourses] = useState([]);
+  const [selectedCourseId, setSelectedCourseId] = useState("");
   const [lessons, setLessons] = useState([]);
   const [selectedLessonId, setSelectedLessonId] = useState("");
   const [challenges, setChallenges] = useState([]);
@@ -23,24 +25,58 @@ function AdminChallenges() {
   const [editIndex, setEditIndex] = useState(null);
   const [formData, setFormData] = useState({ title: "", task: "", initial_code: "", expected_output: "", hints: [""] });
 
+  // 1. Fetch courses on mount
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/lessons?username=admin@lms.com")
+    fetch("http://127.0.0.1:8000/admin/courses")
       .then(r => r.json())
-      .then(data => {
-        const flat = [];
-        data.forEach(cat => cat.lessons.forEach(l => flat.push(l)));
-        setLessons(flat);
-        if (flat.length > 0) setSelectedLessonId(flat[0].id);
-      });
+      .then(d => {
+        if (Array.isArray(d) && d.length > 0) {
+          setCourses(d);
+          setSelectedCourseId(d[0].id);
+        }
+      })
+      .catch(err => console.error("Error loading courses:", err));
   }, []);
 
-  useEffect(() => { if (selectedLessonId) fetchChallenges(); }, [selectedLessonId]);
+  // 2. When selected course changes: reset lesson & challenges, fetch lessons for this course only
+  useEffect(() => {
+    if (!selectedCourseId) return;
+
+    setSelectedLessonId("");
+    setChallenges([]);
+    setLessons([]);
+
+    fetch(`http://127.0.0.1:8000/admin/lessons?course_id=${selectedCourseId}`)
+      .then(r => r.json())
+      .then(d => {
+        const courseLessons = Array.isArray(d) ? d : [];
+        setLessons(courseLessons);
+        if (courseLessons.length > 0) {
+          setSelectedLessonId(courseLessons[0].id);
+        }
+      })
+      .catch(err => console.error("Error loading lessons for course:", err));
+  }, [selectedCourseId]);
+
+  // 3. When selected lesson changes: fetch challenges for this lesson only
+  useEffect(() => {
+    if (!selectedLessonId) {
+      setChallenges([]);
+      return;
+    }
+    fetchChallenges();
+  }, [selectedLessonId]);
 
   const fetchChallenges = () => {
+    if (!selectedLessonId) return;
     setLoading(true);
     fetch(`http://127.0.0.1:8000/lessons/${selectedLessonId}?username=admin@lms.com`)
       .then(r => r.json())
-      .then(d => { setChallenges(d.coding_challenges || []); setLoading(false); });
+      .then(d => { 
+        setChallenges(d.coding_challenges || []); 
+        setLoading(false); 
+      })
+      .catch(() => setLoading(false));
   };
 
   const handleOpenModal = (index = null) => {
@@ -56,20 +92,24 @@ function AdminChallenges() {
 
   const handleSave = (e) => {
     e.preventDefault();
+    if (!selectedLessonId) return;
     let updated = [...challenges];
     if (editIndex !== null) updated[editIndex] = formData;
     else updated.push(formData);
+
     fetch(`http://127.0.0.1:8000/admin/lessons/${selectedLessonId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ coding_challenges: updated })
     }).then(() => {
-      setShowModal(false); fetchChallenges();
+      setShowModal(false); 
+      fetchChallenges();
       addToast(editIndex !== null ? "Challenge updated!" : "Challenge added!", "success");
     });
   };
 
   const handleDelete = (index) => {
+    if (!selectedLessonId) return;
     if (window.confirm("Delete this challenge?")) {
       const updated = challenges.filter((_, i) => i !== index);
       fetch(`http://127.0.0.1:8000/admin/lessons/${selectedLessonId}`, {
@@ -79,6 +119,9 @@ function AdminChallenges() {
       }).then(() => { fetchChallenges(); addToast("Challenge deleted.", "success"); });
     }
   };
+
+  const currentCourse = courses.find(c => c.id === selectedCourseId);
+  const techLabel = currentCourse ? currentCourse.technology : "Code";
 
   return (
     <AdminLayout>
@@ -91,22 +134,56 @@ function AdminChallenges() {
         </div>
         <button
           onClick={() => handleOpenModal()}
-          style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 20px", background: "linear-gradient(135deg,#ef4444,#dc2626)", color: "#fff", border: "none", borderRadius: "12px", fontWeight: 700, fontSize: "13px", cursor: "pointer", boxShadow: "0 4px 12px rgba(239,68,68,0.4)" }}
+          disabled={!selectedLessonId}
+          style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 20px", background: "linear-gradient(135deg,#ef4444,#dc2626)", color: "#fff", border: "none", borderRadius: "12px", fontWeight: 700, fontSize: "13px", cursor: "pointer", boxShadow: "0 4px 12px rgba(239,68,68,0.4)", opacity: !selectedLessonId ? 0.6 : 1 }}
         >
           <Plus size={17} /> Add Challenge
         </button>
       </div>
 
-      {/* Lesson Selector */}
-      <div style={{ background: "#fff", borderRadius: "14px", padding: "20px 24px", marginBottom: "20px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", border: "1px solid rgba(0,0,0,0.04)", display: "flex", alignItems: "center", gap: "16px" }}>
-        <Code2 size={20} style={{ color: "#ef4444", flexShrink: 0 }} />
-        <div style={{ flex: 1 }}>
-          <label style={{ ...labelStyle, marginBottom: "8px" }}>Select Lesson</label>
-          <select style={{ ...inputStyle, width: "auto", minWidth: "300px" }} value={selectedLessonId} onChange={e => setSelectedLessonId(e.target.value)}>
-            {lessons.map(l => <option key={l.id} value={l.id}>{l.title}</option>)}
-          </select>
+      {/* Hierarchical Filter: Course Selector & Lesson Selector */}
+      <div style={{ background: "#fff", borderRadius: "14px", padding: "20px 24px", marginBottom: "20px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", border: "1px solid rgba(0,0,0,0.04)", display: "flex", alignItems: "center", gap: "24px", flexWrap: "wrap" }}>
+        
+        {/* Course Selector */}
+        <div style={{ minWidth: "240px" }}>
+          <label style={{ ...labelStyle, marginBottom: "8px" }}>Select Course</label>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <BookOpen size={18} style={{ color: "#4f46e5", flexShrink: 0 }} />
+            <select
+              style={{ ...inputStyle, fontWeight: 600, color: "#0f172a" }}
+              value={selectedCourseId}
+              onChange={e => setSelectedCourseId(e.target.value)}
+            >
+              {courses.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
         </div>
-        <div style={{ background: "#fef2f2", color: "#ef4444", fontWeight: 700, fontSize: "14px", padding: "10px 20px", borderRadius: "10px" }}>
+
+        {/* Lesson Selector */}
+        <div style={{ flex: 1, minWidth: "280px" }}>
+          <label style={{ ...labelStyle, marginBottom: "8px" }}>Select Lesson</label>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <Code2 size={18} style={{ color: "#ef4444", flexShrink: 0 }} />
+            <select
+              style={{ ...inputStyle, width: "100%", color: lessons.length === 0 ? "#9ca3af" : "#0f172a" }}
+              value={selectedLessonId}
+              onChange={e => setSelectedLessonId(e.target.value)}
+              disabled={lessons.length === 0}
+            >
+              {lessons.length === 0 ? (
+                <option value="">No lessons available for this course yet</option>
+              ) : (
+                lessons.map(l => (
+                  <option key={l.id} value={l.id}>{l.title}</option>
+                ))
+              )}
+            </select>
+          </div>
+        </div>
+
+        <div style={{ background: "#fef2f2", color: "#ef4444", fontWeight: 700, fontSize: "14px", padding: "10px 20px", borderRadius: "10px", alignSelf: "flex-end" }}>
           {challenges.length} Challenges
         </div>
       </div>
@@ -114,10 +191,17 @@ function AdminChallenges() {
       {/* Challenges List */}
       {loading ? (
         <div style={{ textAlign: "center", padding: "60px" }}><div className="spinner-border text-danger" /></div>
+      ) : lessons.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "60px", background: "#fff", borderRadius: "16px" }}>
+          <BookOpen size={56} style={{ color: "#d1d5db", marginBottom: "12px" }} />
+          <h3 style={{ color: "#9ca3af", fontWeight: 500, fontSize: "16px" }}>No lessons available for this course yet.</h3>
+          <p style={{ color: "#cbd5e1", fontSize: "13px" }}>Create or generate lessons for this course to manage coding challenges.</p>
+        </div>
       ) : challenges.length === 0 ? (
         <div style={{ textAlign: "center", padding: "60px", background: "#fff", borderRadius: "16px" }}>
           <Code2 size={56} style={{ color: "#d1d5db", marginBottom: "12px" }} />
-          <h3 style={{ color: "#9ca3af", fontWeight: 500 }}>No challenges configured yet.</h3>
+          <h3 style={{ color: "#9ca3af", fontWeight: 500, fontSize: "16px" }}>No challenges configured for this lesson yet.</h3>
+          <p style={{ color: "#cbd5e1", fontSize: "13px" }}>Click "Add Challenge" above to configure tasks and starter code.</p>
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
@@ -136,10 +220,10 @@ function AdminChallenges() {
                   <button onClick={() => handleDelete(i)} style={{ padding: "7px 9px", background: "#fef2f2", border: "none", borderRadius: "8px", cursor: "pointer", color: "#ef4444", display: "flex", alignItems: "center" }}><Trash2 size={14} /></button>
                 </div>
               </div>
-              <p style={{ color: "#6b7280", fontSize: "13px", marginBottom: "12px", lineHeight: 1.5 }}>{c.task}</p>
-              {c.initial_code && (
+              <p style={{ color: "#6b7280", fontSize: "13px", marginBottom: "12px", lineHeight: 1.5 }}>{c.task || c.problem}</p>
+              {(c.initial_code || c.starter_code) && (
                 <div style={{ background: "#0f172a", borderRadius: "10px", padding: "14px 16px", fontFamily: "monospace", fontSize: "12px", color: "#38bdf8", lineHeight: 1.6 }}>
-                  {c.initial_code}
+                  {c.initial_code || c.starter_code}
                 </div>
               )}
             </div>
@@ -152,7 +236,7 @@ function AdminChallenges() {
         <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.6)", backdropFilter: "blur(4px)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
           <div style={{ background: "#fff", borderRadius: "20px", width: "600px", maxHeight: "90vh", overflowY: "auto", padding: "32px", boxShadow: "0 25px 60px rgba(0,0,0,0.3)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px", paddingBottom: "16px", borderBottom: "1px solid #f1f5f9" }}>
-              <h2 style={{ fontSize: "18px", fontWeight: 800, color: "#0f172a", margin: 0 }}>Coding Challenge</h2>
+              <h2 style={{ fontSize: "18px", fontWeight: 800, color: "#0f172a", margin: 0 }}>Coding Challenge ({techLabel})</h2>
               <button onClick={() => setShowModal(false)} style={{ background: "#f1f5f9", border: "none", borderRadius: "10px", padding: "8px", cursor: "pointer" }}><X size={16} /></button>
             </div>
             <form onSubmit={handleSave}>
@@ -165,7 +249,7 @@ function AdminChallenges() {
                 <textarea style={{ ...inputStyle, resize: "vertical", minHeight: "80px" }} value={formData.task} onChange={e => setFormData({ ...formData, task: e.target.value })} required />
               </div>
               <div style={{ marginBottom: "14px" }}>
-                <label style={labelStyle}>Starter Code (Python)</label>
+                <label style={labelStyle}>Starter Code ({techLabel})</label>
                 <textarea style={{ ...inputStyle, fontFamily: "monospace", background: "#0f172a", color: "#38bdf8", border: "none", resize: "vertical", minHeight: "100px", fontSize: "12px" }} value={formData.initial_code} onChange={e => setFormData({ ...formData, initial_code: e.target.value })} />
               </div>
               <div style={{ marginBottom: "14px" }}>
@@ -200,3 +284,4 @@ function AdminChallenges() {
 }
 
 export default AdminChallenges;
+

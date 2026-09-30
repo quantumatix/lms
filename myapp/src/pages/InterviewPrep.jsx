@@ -10,6 +10,7 @@ import {
   UserCheck,
   Globe
 } from "lucide-react";
+import { useCourse } from "../context/CourseContext";
 
 function InterviewPrep() {
   const [questions, setQuestions] = useState([]);
@@ -18,12 +19,14 @@ function InterviewPrep() {
   const [answer, setAnswer] = useState("");
   const [evaluation, setEvaluation] = useState(null);
   const [loading, setLoading] = useState(false);
+  const { selectedCourse } = useCourse();
 
   useEffect(() => {
-    fetch(`http://127.0.0.1:8000/interview/questions?category=${category}`)
+    const courseParam = selectedCourse?.id ? `&course_id=${selectedCourse.id}` : "";
+    fetch(`http://127.0.0.1:8000/interview/questions?category=${category}${courseParam}`)
       .then(res => res.json())
-      .then(data => setQuestions(data));
-  }, [category]);
+      .then(data => setQuestions(Array.isArray(data) ? data : []));
+  }, [category, selectedCourse]);
 
   const handleEvaluate = () => {
     setLoading(true);
@@ -59,7 +62,7 @@ function InterviewPrep() {
           <div className="d-flex justify-content-between align-items-center">
             <div>
               <h2 className="fw-bold mb-1 text-dark" style={{ letterSpacing: "-1px" }}>Interview Preparation</h2>
-              <p className="text-muted mb-0">Master Python concepts and ace your technical interviews.</p>
+              <p className="text-muted mb-0">Master {selectedCourse?.technology || "Python"} concepts and ace your technical interviews.</p>
             </div>
             <Link to="/mock-interview" className="btn btn-primary rounded-pill px-4 py-3 fw-bold shadow-lg d-flex align-items-center gap-2">
               <UserCheck size={20} /> Start Mock Interview

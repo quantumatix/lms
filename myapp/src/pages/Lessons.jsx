@@ -9,24 +9,28 @@ import {
   Search,
   Sword,
 } from "lucide-react";
+import { useCourse } from "../context/CourseContext";
 
 function Lessons() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const username = localStorage.getItem("username");
+  const { selectedCourse } = useCourse();
 
   useEffect(() => {
-    fetch(`http://127.0.0.1:8000/lessons?username=${username}`)
+    setLoading(true);
+    const courseParam = selectedCourse?.id ? `&course_id=${selectedCourse.id}` : "";
+    fetch(`http://127.0.0.1:8000/lessons?username=${username}${courseParam}`)
       .then((res) => res.json())
       .then((data) => {
-        setCategories(data);
+        setCategories(Array.isArray(data) ? data : []);
         setLoading(false);
       })
       .catch((err) => {
         console.error("Error:", err);
         setLoading(false);
       });
-  }, [username]);
+  }, [username, selectedCourse]);
 
   return (
     <div className="d-flex" style={{ minHeight: "100vh", backgroundColor: "#f8fafc" }}>
@@ -37,7 +41,7 @@ function Lessons() {
           <div className="mb-5 d-flex justify-content-between align-items-center flex-wrap gap-3">
             <div>
               <h1 className="fw-bold text-dark mb-1 h2">Lessons</h1>
-              <p className="text-muted mb-0">Explore all lessons for Python Core.</p>
+              <p className="text-muted mb-0">Explore all lessons for {selectedCourse?.name || "Python Core"}.</p>
             </div>
             <Link 
               to="/coding-practice" 

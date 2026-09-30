@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
+import { useCourse } from "../context/CourseContext";
 import { 
   BarChart, 
   Bar, 
@@ -27,6 +28,7 @@ import {
 
 function InterviewDashboard() {
   const navigate = useNavigate();
+  const { selectedCourse } = useCourse();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -39,7 +41,12 @@ function InterviewDashboard() {
       return;
     }
 
-    fetch(`http://127.0.0.1:8000/interview/skill-analysis/${username}`)
+    setLoading(true);
+    setError(null);
+    setData(null);
+
+    const courseParam = selectedCourse?.id ? `?course_id=${selectedCourse.id}` : "";
+    fetch(`http://127.0.0.1:8000/interview/skill-analysis/${username}${courseParam}`)
       .then((res) => {
         if (!res.ok) {
           throw new Error("Student data analysis failed or student not found.");
@@ -54,7 +61,7 @@ function InterviewDashboard() {
         setError(err.message);
         setLoading(false);
       });
-  }, [username, navigate]);
+  }, [username, selectedCourse?.id, navigate]);
 
   if (loading) {
     return (
@@ -106,7 +113,7 @@ function InterviewDashboard() {
               Interview Readiness Profile 🎓
             </h1>
             <p className="text-muted mb-0 small">
-              Analyzing Python capability metrics for <strong>{data.username}</strong> ({data.email || "student"})
+              Analyzing {data.technology || selectedCourse?.technology || "technology"} capability metrics for <strong>{data.username}</strong> ({data.email || "student"})
             </p>
           </div>
           <button 

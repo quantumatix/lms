@@ -9,6 +9,7 @@ import {
   ChevronRight,
   BrainCircuit
 } from "lucide-react";
+import { useCourse } from "../context/CourseContext";
 
 function MCQTest() {
   const [questions, setQuestions] = useState([]);
@@ -16,19 +17,22 @@ function MCQTest() {
   const [score, setScore] = useState(null);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(true);
+  const { selectedCourse } = useCourse();
 
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/mcq")
+    setLoading(true);
+    const courseParam = selectedCourse?.id ? `?course_id=${selectedCourse.id}` : "";
+    fetch(`http://127.0.0.1:8000/mcq${courseParam}`)
       .then((res) => res.json())
       .then((data) => {
-        setQuestions(data);
+        setQuestions(Array.isArray(data) ? data : []);
         setLoading(false);
       })
       .catch(err => {
         console.error(err);
         setLoading(false);
       });
-  }, []);
+  }, [selectedCourse]);
 
   const handleAnswer = (questionId, answer) => {
     if (submitted) return;
@@ -42,6 +46,8 @@ function MCQTest() {
     const username = localStorage.getItem("username");
     let totalScore = 0;
 
+    const courseId = selectedCourse?.id || "python-core";
+
     // First calculate score and save mistakes
     for (const q of questions) {
       if (answers[q.id] === q.answer) {
@@ -52,6 +58,7 @@ function MCQTest() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             username: username,
+            course_id: courseId,
             question: q.question,
             options: q.options,
             correct_answer: q.answer,
@@ -71,13 +78,14 @@ function MCQTest() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           username: username,
+          course_id: courseId,
           score: totalScore,
           total: questions.length,
         }),
       });
 
       if (totalScore > 0) {
-        await fetch(`http://127.0.0.1:8000/add-xp/${username}/20`);
+        await fetch(`http://127.0.0.1:8000/add-xp/${username}/20?course_id=${courseId}`);
       }
     } catch (error) {
       console.log(error);
@@ -92,7 +100,7 @@ function MCQTest() {
           
           <div className="d-flex align-items-center justify-content-between mb-5">
             <div>
-              <h1 className="display-6 fw-bold text-dark mb-2">Python Knowledge Check</h1>
+              <h1 className="display-6 fw-bold text-dark mb-2">{selectedCourse?.name || "Python Core"} Knowledge Check</h1>
               <p className="text-muted">Test your understanding with these multiple-choice questions.</p>
             </div>
             <div className="bg-white p-3 rounded-4 shadow-sm border d-flex align-items-center gap-3">

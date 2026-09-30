@@ -93,11 +93,16 @@ def check_match(received: str, expected: str) -> bool:
     return rec == exp
 
 @router.get("/challenges")
-def get_challenges(lesson_id: str = None, difficulty: str = None):
+def get_challenges(lesson_id: str = None, difficulty: str = None, course_id: str = None):
     query = {}
-    if lesson_id: query["lesson_id"] = lesson_id
-    if difficulty: query["difficulty"] = difficulty
+    if lesson_id:
+        query["lesson_id"] = lesson_id
+    if difficulty:
+        query["difficulty"] = difficulty
+    if course_id:
+        query["course_id"] = course_id
     return list(coding_challenges.find(query, {"_id": 0}))
+
 
 @router.get("/challenges/{challenge_id}")
 def get_challenge(challenge_id: str):
@@ -145,9 +150,11 @@ def validate_code(data: dict):
             })
             
     status = "success" if all_passed else "failed"
+    course_id = challenge.get("course_id", "python-core")
     history_collection.insert_one({
         "username": username,
         "challenge_id": challenge_id,
+        "course_id": course_id,
         "code": user_code,
         "status": status,
         "timestamp": datetime.now().isoformat()
@@ -159,8 +166,9 @@ def validate_code(data: dict):
         if not already_done:
             xp_earned = challenge.get("xp_reward", 50)
             overall_progress_collection.update_one(
-                {"username": username},
-                {"$inc": {"xp": xp_earned}}
+                {"username": username, "course_id": course_id},
+                {"$inc": {"xp": xp_earned}},
+                upsert=True
             )
 
     return {
@@ -176,25 +184,36 @@ def run_and_validate_code(request: CodeRunRequest):
     challenge_id = request.challenge_id
     user_code = request.code
     submit = request.submit
-    
-    print("Requested challenge:", request.challenge_id)
-    print("Mongo query:", {"id": request.challenge_id})
+
     challenge = coding_challenges.find_one({"id": request.challenge_id})
-    print("Mongo result:", challenge)
     if not challenge:
         raise HTTPException(status_code=404, detail="Challenge not found")
-            
+
+    # Check runtime field — only python3 is supported for live execution
+    runtime = challenge.get("runtime", "python3")
+    if runtime not in ("python3", "python"):
+        language = challenge.get("language", runtime)
+        return {
+            "status": "not_supported",
+            "output": "",
+            "expected_output": challenge.get("expected_output", ""),
+            "execution_time": 0.0,
+            "xp_earned": 0,
+            "error": None,
+            "message": f"Live code execution for {language} is not yet available. Check back later."
+        }
+
     test_cases = challenge.get("test_cases", [])
     if not test_cases:
         test_cases = [{"input": "", "expected": ""}]
-        
+
     all_passed = True
     first_output = ""
     first_expected = ""
     first_error = None
     total_time = 0.0
     results_list = []
-    
+
     if not submit:
         exec_res = execute_code_safely(user_code)
         output_str = exec_res["stdout"]
@@ -297,18 +316,22 @@ def run_and_validate_code(request: CodeRunRequest):
                     }}
                 )
                 
+                course_id = challenge.get("course_id", "python-core") if challenge else "python-core"
                 # Update progress
                 db["progress"].update_one(
-                    {"username": username},
+                    {"username": username, "course_id": course_id},
                     {
                         "$inc": {"xp": xp_earned},
-                        "$addToSet": {"completed_topics": challenge.get("lesson_id", "")}
+                        "$addToSet": {"completed_topics": challenge.get("lesson_id", "")},
+                        "$set": {"course_id": course_id}
                     },
                     upsert=True
                 )
                 
+        course_id = challenge.get("course_id", "python-core") if challenge else "python-core"
         result = coding_results.insert_one({
             "username": username,
+            "course_id": course_id,
             "lesson_id": lesson_id or challenge.get("lesson_id", ""),
             "challenge_id": challenge_id,
             "submitted_code": user_code,

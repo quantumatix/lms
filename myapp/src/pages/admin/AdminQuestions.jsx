@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import AdminLayout from "../../components/AdminLayout";
 import { Toast, useToast } from "../../components/Toast";
-import { Plus, Edit, Trash2, HelpCircle, Save, X, Sparkles } from "lucide-react";
+import { Plus, Edit, Trash2, HelpCircle, Save, X, Sparkles, BookOpen } from "lucide-react";
 
 const inputStyle = {
   width: "100%", padding: "10px 14px", border: "1.5px solid #e5e7eb",
@@ -15,6 +15,8 @@ const labelStyle = {
 
 function AdminQuestions() {
   const { toasts, addToast, removeToast } = useToast();
+  const [courses, setCourses] = useState([]);
+  const [selectedCourseId, setSelectedCourseId] = useState("");
   const [lessons, setLessons] = useState([]);
   const [selectedLessonId, setSelectedLessonId] = useState("");
   const [questions, setQuestions] = useState([]);
@@ -24,10 +26,64 @@ function AdminQuestions() {
   const [formData, setFormData] = useState({ question: "", options: ["", "", "", ""], answer: "", explanation: "" });
   const [generating, setGenerating] = useState(false);
 
-  const handleAIGenerateMCQ = () => {
+  // 1. Fetch all courses on mount
+  useEffect(() => {
+    fetch("http://127.0.0.1:8000/admin/courses")
+      .then(r => r.json())
+      .then(d => {
+        if (Array.isArray(d) && d.length > 0) {
+          setCourses(d);
+          setSelectedCourseId(d[0].id);
+        }
+      })
+      .catch(err => console.error("Error loading courses:", err));
+  }, []);
+
+  // 2. When selected course changes: reset lesson & questions, fetch lessons for this course only
+  useEffect(() => {
+    if (!selectedCourseId) return;
+
+    setSelectedLessonId("");
+    setQuestions([]);
+    setLessons([]);
+
+    fetch(`http://127.0.0.1:8000/admin/lessons?course_id=${selectedCourseId}`)
+      .then(r => r.json())
+      .then(d => {
+        const courseLessons = Array.isArray(d) ? d : [];
+        setLessons(courseLessons);
+        if (courseLessons.length > 0) {
+          setSelectedLessonId(courseLessons[0].id);
+        }
+      })
+      .catch(err => console.error("Error loading lessons for course:", err));
+  }, [selectedCourseId]);
+
+  // 3. When selected lesson changes: fetch MCQs for this lesson only
+  useEffect(() => {
+    if (!selectedLessonId) {
+      setQuestions([]);
+      return;
+    }
+    fetchQuestions();
+  }, [selectedLessonId]);
+
+  const fetchQuestions = () => {
     if (!selectedLessonId) return;
+    setLoading(true);
+    fetch(`http://127.0.0.1:8000/lessons/${selectedLessonId}?username=admin@lms.com`)
+      .then(r => r.json())
+      .then(d => { 
+        setQuestions(d.mcq_quiz || []); 
+        setLoading(false); 
+      })
+      .catch(() => setLoading(false));
+  };
+
+  const handleAIGenerateMCQ = () => {
+    if (!selectedLessonId || !selectedCourseId) return;
     const currentLesson = lessons.find(l => l.id === selectedLessonId);
-    const targetTopic = currentLesson ? currentLesson.title : "Python programming context";
+    const targetTopic = currentLesson ? currentLesson.title : "Lesson Concepts";
     const targetDiff = currentLesson ? currentLesson.difficulty : "Beginner";
     
     setGenerating(true);
@@ -38,7 +94,8 @@ function AdminQuestions() {
         topic: targetTopic,
         difficulty: targetDiff,
         number_of_questions: 5,
-        lesson_id: selectedLessonId
+        lesson_id: selectedLessonId,
+        course_id: selectedCourseId
       })
     })
       .then(r => {
@@ -56,26 +113,6 @@ function AdminQuestions() {
       });
   };
 
-  useEffect(() => {
-    fetch("http://127.0.0.1:8000/lessons?username=admin@lms.com")
-      .then(r => r.json())
-      .then(data => {
-        const flat = [];
-        data.forEach(cat => cat.lessons.forEach(l => flat.push(l)));
-        setLessons(flat);
-        if (flat.length > 0) setSelectedLessonId(flat[0].id);
-      });
-  }, []);
-
-  useEffect(() => { if (selectedLessonId) fetchQuestions(); }, [selectedLessonId]);
-
-  const fetchQuestions = () => {
-    setLoading(true);
-    fetch(`http://127.0.0.1:8000/lessons/${selectedLessonId}?username=admin@lms.com`)
-      .then(r => r.json())
-      .then(d => { setQuestions(d.mcq_quiz || []); setLoading(false); });
-  };
-
   const handleOpenModal = (index = null) => {
     if (index !== null) {
       setEditIndex(index);
@@ -89,9 +126,11 @@ function AdminQuestions() {
 
   const handleSave = (e) => {
     e.preventDefault();
+    if (!selectedLessonId) return;
     let updated = [...questions];
     if (editIndex !== null) updated[editIndex] = formData;
     else updated.push(formData);
+
     fetch(`http://127.0.0.1:8000/admin/lessons/${selectedLessonId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -104,6 +143,7 @@ function AdminQuestions() {
   };
 
   const handleDelete = (index) => {
+    if (!selectedLessonId) return;
     if (window.confirm("Delete this question?")) {
       const updated = questions.filter((_, i) => i !== index);
       fetch(`http://127.0.0.1:8000/admin/lessons/${selectedLessonId}`, {
@@ -121,7 +161,7 @@ function AdminQuestions() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "28px" }}>
         <div>
           <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#0f172a", margin: 0 }}>MCQ Questions</h1>
-          <p style={{ color: "#9ca3af", fontSize: "13px", margin: 0, marginTop: "4px" }}>Manage quiz questions for each lesson</p>
+          <p style={{ color: "#9ca3af", fontSize: "13px", margin: 0, marginTop: "4px" }}>Manage quiz questions by course and lesson</p>
         </div>
         <div style={{ display: "flex", gap: "10px" }}>
           <button
@@ -141,16 +181,49 @@ function AdminQuestions() {
         </div>
       </div>
 
-      {/* Lesson Selector */}
-      <div style={{ background: "#fff", borderRadius: "14px", padding: "20px 24px", marginBottom: "20px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", border: "1px solid rgba(0,0,0,0.04)", display: "flex", alignItems: "center", gap: "16px" }}>
-        <HelpCircle size={20} style={{ color: "#f59e0b", flexShrink: 0 }} />
-        <div style={{ flex: 1 }}>
-          <label style={{ ...labelStyle, marginBottom: "8px" }}>Select Lesson</label>
-          <select style={{ ...inputStyle, width: "auto", minWidth: "300px" }} value={selectedLessonId} onChange={e => setSelectedLessonId(e.target.value)}>
-            {lessons.map(l => <option key={l.id} value={l.id}>{l.title}</option>)}
-          </select>
+      {/* Hierarchical Filter: Course Selector & Lesson Selector */}
+      <div style={{ background: "#fff", borderRadius: "14px", padding: "20px 24px", marginBottom: "20px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", border: "1px solid rgba(0,0,0,0.04)", display: "flex", alignItems: "center", gap: "24px", flexWrap: "wrap" }}>
+        
+        {/* Course Selector */}
+        <div style={{ minWidth: "240px" }}>
+          <label style={{ ...labelStyle, marginBottom: "8px" }}>Select Course</label>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <BookOpen size={18} style={{ color: "#4f46e5", flexShrink: 0 }} />
+            <select
+              style={{ ...inputStyle, fontWeight: 600, color: "#0f172a" }}
+              value={selectedCourseId}
+              onChange={e => setSelectedCourseId(e.target.value)}
+            >
+              {courses.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
         </div>
-        <div style={{ background: "#fffbeb", color: "#d97706", fontWeight: 700, fontSize: "14px", padding: "10px 20px", borderRadius: "10px" }}>
+
+        {/* Lesson Selector */}
+        <div style={{ flex: 1, minWidth: "280px" }}>
+          <label style={{ ...labelStyle, marginBottom: "8px" }}>Select Lesson</label>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <HelpCircle size={18} style={{ color: "#f59e0b", flexShrink: 0 }} />
+            <select
+              style={{ ...inputStyle, width: "100%", color: lessons.length === 0 ? "#9ca3af" : "#0f172a" }}
+              value={selectedLessonId}
+              onChange={e => setSelectedLessonId(e.target.value)}
+              disabled={lessons.length === 0}
+            >
+              {lessons.length === 0 ? (
+                <option value="">No lessons available for this course yet</option>
+              ) : (
+                lessons.map(l => (
+                  <option key={l.id} value={l.id}>{l.title}</option>
+                ))
+              )}
+            </select>
+          </div>
+        </div>
+
+        <div style={{ background: "#fffbeb", color: "#d97706", fontWeight: 700, fontSize: "14px", padding: "10px 20px", borderRadius: "10px", alignSelf: "flex-end" }}>
           {questions.length} Questions
         </div>
       </div>
@@ -158,10 +231,17 @@ function AdminQuestions() {
       {/* Questions Grid */}
       {loading ? (
         <div style={{ textAlign: "center", padding: "60px" }}><div className="spinner-border text-warning" /></div>
+      ) : lessons.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "60px", background: "#fff", borderRadius: "16px" }}>
+          <BookOpen size={56} style={{ color: "#d1d5db", marginBottom: "12px" }} />
+          <h3 style={{ color: "#9ca3af", fontWeight: 500, fontSize: "16px" }}>No lessons available for this course yet.</h3>
+          <p style={{ color: "#cbd5e1", fontSize: "13px" }}>Create or generate lessons for this course to manage MCQs.</p>
+        </div>
       ) : questions.length === 0 ? (
         <div style={{ textAlign: "center", padding: "60px", background: "#fff", borderRadius: "16px" }}>
           <HelpCircle size={56} style={{ color: "#d1d5db", marginBottom: "12px" }} />
-          <h3 style={{ color: "#9ca3af", fontWeight: 500 }}>No questions for this lesson yet.</h3>
+          <h3 style={{ color: "#9ca3af", fontWeight: 500, fontSize: "16px" }}>No MCQs for this lesson yet.</h3>
+          <p style={{ color: "#cbd5e1", fontSize: "13px" }}>Click "AI Generate" or "Add MCQ" above to add quiz questions.</p>
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
@@ -242,3 +322,4 @@ function AdminQuestions() {
 }
 
 export default AdminQuestions;
+

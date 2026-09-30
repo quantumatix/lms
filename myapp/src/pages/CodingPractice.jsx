@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Monitor
 } from "lucide-react";
+import { useCourse } from "../context/CourseContext";
 
 function CodingPractice() {
   const [challenges, setChallenges] = useState([]);
@@ -24,35 +25,42 @@ function CodingPractice() {
   const [history, setHistory] = useState([]);
   const [difficulty, setDifficulty] = useState("All");
   const [username] = useState(localStorage.getItem("username"));
+  const { selectedCourse } = useCourse();
 
   useEffect(() => {
     fetchChallenges();
     fetchHistory();
-  }, [difficulty]);
+  }, [difficulty, selectedCourse]);
 
   const fetchChallenges = () => {
-    const url = difficulty === "All" 
-      ? "http://127.0.0.1:8000/challenges" 
-      : `http://127.0.0.1:8000/challenges?difficulty=${difficulty}`;
+    const courseParam = selectedCourse?.id ? `course_id=${selectedCourse.id}` : "course_id=python-core";
+    const diffParam = difficulty !== "All" ? `&difficulty=${difficulty}` : "";
+    const url = `http://127.0.0.1:8000/challenges?${courseParam}${diffParam}`;
+    
     fetch(url)
       .then(res => res.json())
       .then(data => {
-        setChallenges(data);
-        if (data.length > 0 && !selectedChallenge) {
-          handleSelectChallenge(data[0]);
+        const list = Array.isArray(data) ? data : [];
+        setChallenges(list);
+        if (list.length > 0) {
+          handleSelectChallenge(list[0]);
+        } else {
+          setSelectedChallenge(null);
+          setCode("");
         }
       });
   };
 
   const fetchHistory = () => {
-    fetch(`http://127.0.0.1:8000/history/${username}`)
+    const courseParam = selectedCourse?.id ? `?course_id=${selectedCourse.id}` : "";
+    fetch(`http://127.0.0.1:8000/history/${username}${courseParam}`)
       .then(res => res.json())
-      .then(data => setHistory(data));
+      .then(data => setHistory(Array.isArray(data) ? data : []));
   };
 
   const handleSelectChallenge = (ch) => {
     setSelectedChallenge(ch);
-    setCode(ch.initial_code);
+    setCode(ch.initial_code || ch.starter_code || "");
     setResults(null);
     setShowHint(false);
   };
@@ -82,6 +90,10 @@ function CodingPractice() {
     });
   };
 
+  const currentLanguage = (selectedChallenge?.language || selectedCourse?.technology || "python").toLowerCase();
+  const monacoLang = currentLanguage.includes("script") ? "javascript" : currentLanguage.includes("java") ? "java" : currentLanguage.includes("c++") || currentLanguage.includes("cpp") ? "cpp" : currentLanguage.includes("sql") ? "sql" : "python";
+  const fileExt = monacoLang === "javascript" ? "js" : monacoLang === "java" ? "java" : monacoLang === "cpp" ? "cpp" : monacoLang === "sql" ? "sql" : "py";
+
   return (
     <div className="d-flex" style={{ minHeight: "100vh", backgroundColor: "#0f172a" }}>
       <Sidebar />
@@ -90,7 +102,7 @@ function CodingPractice() {
         {/* Sub Header */}
         <div className="bg-slate-900 border-bottom border-slate-800 py-3 px-4 d-flex justify-content-between align-items-center sticky-top" style={{ backgroundColor: "#0f172a" }}>
           <div className="d-flex align-items-center gap-3">
-            <h4 className="text-white fw-bold mb-0">Coding Lab</h4>
+            <h4 className="text-white fw-bold mb-0">{selectedCourse?.name || "Python Core"} Coding Lab</h4>
             <select 
               className="form-select form-select-sm bg-slate-800 border-slate-700 text-white w-auto"
               style={{ backgroundColor: "#1e293b", borderColor: "#334155" }}
@@ -161,7 +173,7 @@ function CodingPractice() {
 
             <div className="flex-grow-1 bg-slate-900 p-0 d-flex flex-column" style={{ backgroundColor: "#0f172a" }}>
               <div className="bg-slate-800 px-4 py-2 d-flex justify-content-between align-items-center" style={{ backgroundColor: "#1e293b", borderBottom: "1px solid #334155" }}>
-                <span className="text-slate-400 small fw-bold d-flex align-items-center gap-1" style={{ color: "#94a3b8" }}><Code size={14} /> solution.py</span>
+                <span className="text-slate-400 small fw-bold d-flex align-items-center gap-1" style={{ color: "#94a3b8" }}><Code size={14} /> solution.{fileExt}</span>
                 <div className="d-flex gap-2">
                    <button onClick={() => setShowHint(!showHint)} className="btn btn-sm btn-outline-secondary border-0 text-slate-400 hover-text-white" style={{ outline: "none", boxShadow: "none", color: "#94a3b8" }}>
                      Hint
@@ -187,7 +199,7 @@ function CodingPractice() {
               <div className="flex-grow-1 overflow-hidden position-relative">
                 <Editor
                   height="100%"
-                  language="python"
+                  language={monacoLang}
                   value={code}
                   onChange={value => setCode(value || "")}
                   theme="vs-dark"
@@ -219,7 +231,19 @@ function CodingPractice() {
                 <div className="d-flex flex-column gap-4 animate-fadeln">
                   
                   {/* Validation Badge */}
-                  {results.status === "Executed" ? (
+                  {results.status === "not_supported" ? (
+                    <div className="p-4 rounded-3 text-center border"
+                      style={{ 
+                        backgroundColor: "rgba(120, 53, 15, 0.2)",
+                        borderColor: "#f59e0b",
+                        color: "#fbbf24"
+                      }}
+                    >
+                      <AlertCircle size={36} className="mb-2" />
+                      <h5 className="fw-bold mb-1">Execution Notice</h5>
+                      <div className="small">{results.message || "Live code execution is not yet supported for this language."}</div>
+                    </div>
+                  ) : results.status === "Executed" ? (
                     <div className="p-3 rounded-3 bg-slate-800 border border-slate-700 text-slate-300" style={{ backgroundColor: "#1e293b", borderColor: "#334155" }}>
                       <div className="fw-semibold small uppercase text-slate-500 mb-1" style={{ color: "#94a3b8", fontSize: "11px" }}>RUN STATUS</div>
                       <div className="d-flex align-items-center gap-2 text-white fw-bold">

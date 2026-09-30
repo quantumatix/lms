@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import AdminLayout from "../../components/AdminLayout";
 import { Toast, useToast } from "../../components/Toast";
-import { Plus, Edit, Trash2, FileCode, Save, X, Sparkles } from "lucide-react";
+import { Plus, Edit, Trash2, FileCode, Save, X, Sparkles, BookOpen, Layers } from "lucide-react";
 
 const inputStyle = {
   width: "100%", padding: "10px 14px", border: "1.5px solid #e5e7eb",
@@ -15,8 +15,11 @@ const labelStyle = {
 
 function AdminExercises() {
   const { toasts, addToast, removeToast } = useToast();
-  const [exercises, setExercises] = useState([]);
+  const [courses, setCourses] = useState([]);
+  const [selectedCourseId, setSelectedCourseId] = useState("");
   const [lessons, setLessons] = useState([]);
+  const [selectedLessonFilter, setSelectedLessonFilter] = useState("");
+  const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editExercise, setEditExercise] = useState(null);
@@ -28,6 +31,62 @@ function AdminExercises() {
   const [aiDifficulty, setAiDifficulty] = useState("Beginner");
   const [generatingAI, setGeneratingAI] = useState(false);
 
+  // 1. Fetch courses on mount
+  useEffect(() => {
+    fetch("http://127.0.0.1:8000/admin/courses")
+      .then(r => r.json())
+      .then(d => {
+        if (Array.isArray(d) && d.length > 0) {
+          setCourses(d);
+          setSelectedCourseId(d[0].id);
+        }
+      })
+      .catch(err => console.error("Error loading courses:", err));
+  }, []);
+
+  // 2. When selected course changes: reset lessons, lesson filter & exercises
+  useEffect(() => {
+    if (!selectedCourseId) return;
+
+    setSelectedLessonFilter("");
+    setExercises([]);
+    setLessons([]);
+
+    // Fetch lessons for this course only
+    fetch(`http://127.0.0.1:8000/admin/lessons?course_id=${selectedCourseId}`)
+      .then(r => r.json())
+      .then(d => {
+        setLessons(Array.isArray(d) ? d : []);
+      })
+      .catch(err => console.error("Error loading lessons for course:", err));
+
+    // Fetch exercises for this course only
+    fetchExercises(selectedCourseId, "");
+  }, [selectedCourseId]);
+
+  // 3. When lesson filter changes: fetch exercises filtered by that lesson
+  useEffect(() => {
+    if (selectedCourseId) {
+      fetchExercises(selectedCourseId, selectedLessonFilter);
+    }
+  }, [selectedLessonFilter]);
+
+  const fetchExercises = (courseId = selectedCourseId, lessonId = selectedLessonFilter) => {
+    if (!courseId) return;
+    setLoading(true);
+    let url = `http://127.0.0.1:8000/admin/exercises?course_id=${courseId}`;
+    if (lessonId) {
+      url += `&lesson_id=${lessonId}`;
+    }
+    fetch(url)
+      .then(r => r.json())
+      .then(d => { 
+        setExercises(Array.isArray(d) ? d : []); 
+        setLoading(false); 
+      })
+      .catch(() => setLoading(false));
+  };
+
   const handleAIGenerate = (e) => {
     e.preventDefault();
     if (!aiLessonId) {
@@ -35,7 +94,7 @@ function AdminExercises() {
       return;
     }
     const currentLesson = lessons.find(l => l.id === aiLessonId);
-    const targetTopic = aiTopic || (currentLesson ? currentLesson.title : "Functions in Python");
+    const targetTopic = aiTopic || (currentLesson ? currentLesson.title : "Lesson Concepts");
     const targetDiff = aiDifficulty || (currentLesson ? currentLesson.difficulty : "Beginner");
 
     setGeneratingAI(true);
@@ -46,7 +105,8 @@ function AdminExercises() {
         topic: targetTopic,
         difficulty: targetDiff,
         number_of_exercises: 5,
-        lesson_id: aiLessonId
+        lesson_id: aiLessonId,
+        course_id: selectedCourseId
       })
     })
       .then(r => {
@@ -65,32 +125,16 @@ function AdminExercises() {
       });
   };
 
-  const emptyForm = { id: "", lesson_id: "", title: "", type: "Output Prediction", question: "", code: "", expected_answer: "", hint: "", explanation: "" };
+  const emptyForm = { id: "", lesson_id: "", title: "", type: "Output Prediction", question: "", code: "", expected_answer: "", hint: "", explanation: "", course_id: selectedCourseId };
   const [formData, setFormData] = useState(emptyForm);
-
-  useEffect(() => { fetchLessons(); fetchExercises(); }, []);
-
-  const fetchLessons = () => {
-    fetch("http://127.0.0.1:8000/admin/lessons")
-      .then(r => r.json())
-      .then(d => setLessons(Array.isArray(d) ? d : []));
-  };
-
-  const fetchExercises = () => {
-    setLoading(true);
-    fetch("http://127.0.0.1:8000/admin/exercises")
-      .then(r => r.json())
-      .then(d => { setExercises(Array.isArray(d) ? d : []); setLoading(false); })
-      .catch(() => setLoading(false));
-  };
 
   const handleOpenModal = (ex = null) => {
     if (ex) {
       setEditExercise(ex);
-      setFormData({ ...emptyForm, ...ex });
+      setFormData({ ...emptyForm, ...ex, course_id: selectedCourseId });
     } else {
       setEditExercise(null);
-      setFormData({ ...emptyForm, id: `ex_${Date.now()}`, lesson_id: lessons[0]?.id || "" });
+      setFormData({ ...emptyForm, id: `ex_${Date.now()}`, lesson_id: lessons[0]?.id || "", course_id: selectedCourseId });
     }
     setShowModal(true);
   };
@@ -101,10 +145,14 @@ function AdminExercises() {
     const isEditing = editExercise !== null;
     const method = isEditing ? "PUT" : "POST";
     const url = isEditing ? `http://127.0.0.1:8000/admin/exercises/${editExercise.id}` : "http://127.0.0.1:8000/admin/exercises";
-    fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(formData) })
+    const payload = { ...formData, course_id: selectedCourseId };
+
+    fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
       .then(r => r.json())
       .then(() => {
-        setShowModal(false); setSaving(false); fetchExercises();
+        setShowModal(false); 
+        setSaving(false); 
+        fetchExercises();
         addToast(isEditing ? "Exercise updated!" : "Exercise created!", "success");
       })
       .catch(err => { setSaving(false); addToast("Error: " + err.message, "error"); });
@@ -118,6 +166,8 @@ function AdminExercises() {
   };
 
   const getLessonTitle = (id) => lessons.find(l => l.id === id)?.title || id;
+  const currentCourse = courses.find(c => c.id === selectedCourseId);
+  const techLabel = currentCourse ? currentCourse.technology : "Code";
 
   return (
     <AdminLayout>
@@ -131,35 +181,91 @@ function AdminExercises() {
         <div style={{ display: "flex", gap: "10px" }}>
           <button
             onClick={() => {
+              if (lessons.length === 0) {
+                addToast("Please create or select lessons for this course first", "error");
+                return;
+              }
               setAiLessonId(lessons[0]?.id || "");
               setAiTopic(lessons[0]?.title || "");
               setAiDifficulty(lessons[0]?.difficulty || "Beginner");
               setShowAIModal(true);
             }}
-            style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 20px", background: "linear-gradient(135deg,#a855f7,#7c3aed)", color: "#fff", border: "none", borderRadius: "12px", fontWeight: 700, fontSize: "13px", cursor: "pointer", boxShadow: "0 4px 12px rgba(168,85,247,0.4)" }}
+            disabled={lessons.length === 0}
+            style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 20px", background: "linear-gradient(135deg,#a855f7,#7c3aed)", color: "#fff", border: "none", borderRadius: "12px", fontWeight: 700, fontSize: "13px", cursor: "pointer", boxShadow: "0 4px 12px rgba(168,85,247,0.4)", opacity: lessons.length === 0 ? 0.6 : 1 }}
           >
             <Sparkles size={17} /> AI Generate
           </button>
           <button
             onClick={() => handleOpenModal()}
-            style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 20px", background: "linear-gradient(135deg,#0ea5e9,#0284c7)", color: "#fff", border: "none", borderRadius: "12px", fontWeight: 700, fontSize: "13px", cursor: "pointer", boxShadow: "0 4px 12px rgba(14,165,233,0.4)" }}
+            disabled={lessons.length === 0}
+            style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 20px", background: "linear-gradient(135deg,#0ea5e9,#0284c7)", color: "#fff", border: "none", borderRadius: "12px", fontWeight: 700, fontSize: "13px", cursor: "pointer", boxShadow: "0 4px 12px rgba(14,165,233,0.4)", opacity: lessons.length === 0 ? 0.6 : 1 }}
           >
             <Plus size={17} /> New Exercise
           </button>
         </div>
       </div>
 
+      {/* Hierarchical Filter: Course Selector & Lesson Filter */}
+      <div style={{ background: "#fff", borderRadius: "14px", padding: "20px 24px", marginBottom: "20px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", border: "1px solid rgba(0,0,0,0.04)", display: "flex", alignItems: "center", gap: "24px", flexWrap: "wrap" }}>
+        
+        {/* Course Selector */}
+        <div style={{ minWidth: "240px" }}>
+          <label style={{ ...labelStyle, marginBottom: "8px" }}>Select Course</label>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <BookOpen size={18} style={{ color: "#4f46e5", flexShrink: 0 }} />
+            <select
+              style={{ ...inputStyle, fontWeight: 600, color: "#0f172a" }}
+              value={selectedCourseId}
+              onChange={e => setSelectedCourseId(e.target.value)}
+            >
+              {courses.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Lesson Filter */}
+        <div style={{ flex: 1, minWidth: "280px" }}>
+          <label style={{ ...labelStyle, marginBottom: "8px" }}>Filter by Lesson</label>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <Layers size={18} style={{ color: "#0ea5e9", flexShrink: 0 }} />
+            <select
+              style={{ ...inputStyle, width: "100%", color: lessons.length === 0 ? "#9ca3af" : "#0f172a" }}
+              value={selectedLessonFilter}
+              onChange={e => setSelectedLessonFilter(e.target.value)}
+            >
+              <option value="">All Lessons ({lessons.length})</option>
+              {lessons.map(l => (
+                <option key={l.id} value={l.id}>{l.title}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div style={{ background: "#f0f9ff", color: "#0ea5e9", fontWeight: 700, fontSize: "14px", padding: "10px 20px", borderRadius: "10px", alignSelf: "flex-end" }}>
+          {exercises.length} Exercises
+        </div>
+      </div>
+
       {loading ? (
         <div style={{ textAlign: "center", padding: "60px" }}><div className="spinner-border text-info" /></div>
+      ) : lessons.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "60px", background: "#fff", borderRadius: "16px" }}>
+          <BookOpen size={56} style={{ color: "#d1d5db", marginBottom: "12px" }} />
+          <h3 style={{ color: "#9ca3af", fontWeight: 500, fontSize: "16px" }}>No lessons available for this course yet.</h3>
+          <p style={{ color: "#cbd5e1", fontSize: "13px" }}>Create or generate lessons for this course to manage practice exercises.</p>
+        </div>
       ) : exercises.length === 0 ? (
         <div style={{ textAlign: "center", padding: "60px", background: "#fff", borderRadius: "16px" }}>
           <FileCode size={56} style={{ color: "#d1d5db", marginBottom: "12px" }} />
-          <h3 style={{ color: "#9ca3af", fontWeight: 500 }}>No exercises yet. Add one to get started.</h3>
+          <h3 style={{ color: "#9ca3af", fontWeight: 500, fontSize: "16px" }}>No exercises available for this course yet.</h3>
+          <p style={{ color: "#cbd5e1", fontSize: "13px" }}>Click "AI Generate" or "New Exercise" above to add practice tasks.</p>
         </div>
       ) : (
         <div style={{ background: "#fff", borderRadius: "16px", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", border: "1px solid rgba(0,0,0,0.04)" }}>
           <div style={{ padding: "16px 24px", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h3 style={{ fontSize: "14px", fontWeight: 700, color: "#111827", margin: 0 }}>All Exercises</h3>
+            <h3 style={{ fontSize: "14px", fontWeight: 700, color: "#111827", margin: 0 }}>Exercises for {currentCourse?.name || "Selected Course"}</h3>
             <span style={{ background: "#f0f9ff", color: "#0ea5e9", fontWeight: 700, fontSize: "12px", padding: "4px 14px", borderRadius: "20px" }}>{exercises.length} Total</span>
           </div>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -213,7 +319,7 @@ function AdminExercises() {
         <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.6)", backdropFilter: "blur(4px)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
           <div style={{ background: "#fff", borderRadius: "20px", width: "560px", maxHeight: "90vh", overflowY: "auto", padding: "32px", boxShadow: "0 25px 60px rgba(0,0,0,0.3)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px", paddingBottom: "16px", borderBottom: "1px solid #f1f5f9" }}>
-              <h2 style={{ fontSize: "18px", fontWeight: 800, color: "#0f172a", margin: 0 }}>{editExercise ? "Edit Exercise" : "New Exercise"}</h2>
+              <h2 style={{ fontSize: "18px", fontWeight: 800, color: "#0f172a", margin: 0 }}>{editExercise ? "Edit Exercise" : "New Exercise"} ({techLabel})</h2>
               <button onClick={() => setShowModal(false)} style={{ background: "#f1f5f9", border: "none", borderRadius: "10px", padding: "8px", cursor: "pointer" }}><X size={16} /></button>
             </div>
             <form onSubmit={handleSave}>
@@ -248,12 +354,12 @@ function AdminExercises() {
               </div>
 
               <div style={{ marginBottom: "14px" }}>
-                <label style={labelStyle}>Python Code (Optional)</label>
+                <label style={labelStyle}>{techLabel} Code (Optional)</label>
                 <textarea 
                   style={{ ...inputStyle, resize: "vertical", minHeight: "100px", fontFamily: "monospace", backgroundColor: "#f8fafc", borderColor: "#cbd5e1" }} 
                   value={formData.code} 
                   onChange={e => setFormData({ ...formData, code: e.target.value })} 
-                  placeholder="# Write your Python code template here"
+                  placeholder={`# Write your ${techLabel} code template here`}
                 />
               </div>
 
@@ -289,9 +395,9 @@ function AdminExercises() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", paddingBottom: "12px", borderBottom: "1px solid #f1f5f9" }}>
               <div>
                 <h2 style={{ fontSize: "16px", fontWeight: 800, color: "#0f172a", margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
-                  <Sparkles size={20} style={{ color: "#a855f7" }} /> AI Exercise Generator
+                  <Sparkles size={20} style={{ color: "#a855f7" }} /> AI Exercise Generator ({techLabel})
                 </h2>
-                <p style={{ color: "#9ca3af", fontSize: "12px", margin: 0, marginTop: "2px" }}>Generate 5 practice exercises for a lesson</p>
+                <p style={{ color: "#9ca3af", fontSize: "12px", margin: 0, marginTop: "2px" }}>Generate 5 practice exercises for a lesson in {techLabel}</p>
               </div>
               <button type="button" onClick={() => setShowAIModal(false)} style={{ background: "#f1f5f9", border: "none", borderRadius: "8px", padding: "6px", cursor: "pointer" }}><X size={16} /></button>
             </div>
@@ -323,7 +429,7 @@ function AdminExercises() {
                 <label style={labelStyle}>Generation Topic</label>
                 <input
                   style={inputStyle}
-                  placeholder="e.g. List Comprehensions, Decorators..."
+                  placeholder={`e.g. ${techLabel} Methods, Loops, Structures...`}
                   value={aiTopic}
                   onChange={e => setAiTopic(e.target.value)}
                   required
@@ -371,3 +477,4 @@ function AdminExercises() {
 }
 
 export default AdminExercises;
+

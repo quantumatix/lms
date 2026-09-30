@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 // Navigation items — icons use Bootstrap Icons classes
 const navItems = [
   { name: "Dashboard",         path: "/admin",             icon: "bi-speedometer2" },
+  { name: "Courses",           path: "/admin/courses",     icon: "bi-collection-fill" },
   { name: "Students",          path: "/admin/students",    icon: "bi-person-badge-fill" },
   { name: "Lessons",           path: "/admin/lessons",     icon: "bi-book-half" },
   { name: "MCQ Questions",     path: "/admin/questions",   icon: "bi-patch-question-fill" },
@@ -163,7 +164,7 @@ function AdminLayout({ children }) {
         <nav className="sidebar-nav">
           <div className="sidebar-section-label">Main</div>
 
-          {navItems.slice(0, 3).map(item => (
+          {navItems.slice(0, 4).map(item => (
             <Link
               key={item.path}
               to={item.path}
@@ -177,7 +178,7 @@ function AdminLayout({ children }) {
           <hr className="sidebar-divider" />
           <div className="sidebar-section-label">Content</div>
 
-          {navItems.slice(3, 7).map(item => (
+          {navItems.slice(4, 8).map(item => (
             <Link
               key={item.path}
               to={item.path}
@@ -191,7 +192,7 @@ function AdminLayout({ children }) {
           <hr className="sidebar-divider" />
           <div className="sidebar-section-label">Tools</div>
 
-          {navItems.slice(7).map(item => (
+          {navItems.slice(8).map(item => (
             <Link
               key={item.path}
               to={item.path}
@@ -201,6 +202,7 @@ function AdminLayout({ children }) {
               <span>{item.name}</span>
             </Link>
           ))}
+
         </nav>
 
         {/* Footer */}

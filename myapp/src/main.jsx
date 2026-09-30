@@ -6,17 +6,14 @@ import "bootstrap-icons/font/bootstrap-icons.css";
 
 import './index.css'
 import App from './App.jsx'
+import { CourseProvider } from './context/CourseContext.jsx'
 
 createRoot(document.getElementById('root')).render(
-
   <StrictMode>
-
     <BrowserRouter>
-
-      <App />
-
+      <CourseProvider>
+        <App />
+      </CourseProvider>
     </BrowserRouter>
-
   </StrictMode>,
 )
-  

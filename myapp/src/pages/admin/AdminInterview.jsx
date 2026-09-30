@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import AdminLayout from "../../components/AdminLayout";
 import { Toast, useToast } from "../../components/Toast";
-import { Plus, Edit, Trash2, Save, X, MessageSquare, List, Sparkles } from "lucide-react";
+import { Plus, Edit, Trash2, Save, X, MessageSquare, List, Sparkles, BookOpen, Filter } from "lucide-react";
 
 const inputStyle = {
   width: "100%", padding: "10px 14px", border: "1.5px solid #e5e7eb",
@@ -15,6 +15,9 @@ const labelStyle = {
 
 function AdminInterview() {
   const { toasts, addToast, removeToast } = useToast();
+  const [courses, setCourses] = useState([]);
+  const [selectedCourseId, setSelectedCourseId] = useState("");
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState("");
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -24,13 +27,56 @@ function AdminInterview() {
   const [aiCategory, setAiCategory] = useState("Beginner");
   const [generatingAI, setGeneratingAI] = useState(false);
 
+  // 1. Fetch courses on mount
+  useEffect(() => {
+    fetch("http://127.0.0.1:8000/admin/courses")
+      .then(r => r.json())
+      .then(d => {
+        if (Array.isArray(d) && d.length > 0) {
+          setCourses(d);
+          setSelectedCourseId(d[0].id);
+        }
+      })
+      .catch(err => console.error("Error loading courses:", err));
+  }, []);
+
+  // 2. Fetch questions when course or category filter changes
+  useEffect(() => {
+    if (!selectedCourseId) return;
+    fetchQuestions(selectedCourseId, selectedCategoryFilter);
+  }, [selectedCourseId, selectedCategoryFilter]);
+
+  const fetchQuestions = (courseId = selectedCourseId, category = selectedCategoryFilter) => {
+    if (!courseId) return;
+    setLoading(true);
+    let url = `http://127.0.0.1:8000/admin/interview-questions?course_id=${courseId}`;
+    if (category) {
+      url += `&category=${encodeURIComponent(category)}`;
+    }
+    fetch(url)
+      .then(r => r.json())
+      .then(d => { 
+        setQuestions(Array.isArray(d) ? d : []); 
+        setLoading(false); 
+      })
+      .catch(() => { 
+        setLoading(false); 
+        addToast("Failed to fetch questions", "error"); 
+      });
+  };
+
   const handleAIGenerate = (e) => {
     e.preventDefault();
+    if (!selectedCourseId) {
+      addToast("Please select a course first", "error");
+      return;
+    }
     setGeneratingAI(true);
     fetch("http://127.0.0.1:8000/admin/ai/generate-interview-questions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        course_id: selectedCourseId,
         category: aiCategory,
         number_of_questions: 5
       })
@@ -42,7 +88,7 @@ function AdminInterview() {
       .then(() => {
         setGeneratingAI(false);
         setShowAIModal(false);
-        fetchQuestions();
+        fetchQuestions(selectedCourseId, selectedCategoryFilter);
         addToast("5 Interview Questions generated successfully with AI!", "success");
       })
       .catch(err => {
@@ -53,20 +99,8 @@ function AdminInterview() {
   
   const [formData, setFormData] = useState({ 
     id: "", category: "Beginner", question: "", ideal_answer: "", 
-    keywords: [""], points: [""] 
+    keywords: [""], points: [""], course_id: "" 
   });
-
-  useEffect(() => {
-    fetchQuestions();
-  }, []);
-
-  const fetchQuestions = () => {
-    setLoading(true);
-    fetch("http://127.0.0.1:8000/admin/interview-questions")
-      .then(r => r.json())
-      .then(d => { setQuestions(d || []); setLoading(false); })
-      .catch(() => { setLoading(false); addToast("Failed to fetch", "error") });
-  };
 
   const handleOpenModal = (index = null) => {
     if (index !== null) {
@@ -74,13 +108,14 @@ function AdminInterview() {
       setFormData({ 
         ...questions[index], 
         keywords: questions[index].keywords || [""], 
-        points: questions[index].points || [""] 
+        points: questions[index].points || [""],
+        course_id: questions[index].course_id || selectedCourseId
       });
     } else {
       setEditIndex(null);
       setFormData({ 
         id: `int_${Date.now()}`, category: "Beginner", question: "", ideal_answer: "", 
-        keywords: [""], points: [""] 
+        keywords: [""], points: [""], course_id: selectedCourseId 
       });
     }
     setShowModal(true);
@@ -92,6 +127,7 @@ function AdminInterview() {
     // Process form data
     const payload = {
         ...formData,
+        course_id: formData.course_id || selectedCourseId,
         keywords: formData.keywords.filter(k => k.trim() !== ""),
         points: formData.points.filter(p => p.trim() !== "")
     };
@@ -104,7 +140,8 @@ function AdminInterview() {
         body: JSON.stringify(payload)
       }).then((res) => {
           if (!res.ok) throw new Error("Failed");
-          setShowModal(false); fetchQuestions();
+          setShowModal(false); 
+          fetchQuestions(selectedCourseId, selectedCategoryFilter);
           addToast("Interview question updated!", "success");
       }).catch(() => addToast("Failed to update question", "error"));
     } else {
@@ -115,7 +152,8 @@ function AdminInterview() {
         body: JSON.stringify(payload)
       }).then((res) => {
           if (!res.ok) throw new Error("Failed");
-          setShowModal(false); fetchQuestions();
+          setShowModal(false); 
+          fetchQuestions(selectedCourseId, selectedCategoryFilter);
           addToast("Interview question added!", "success");
       }).catch(() => addToast("Failed to add question", "error"));
     }
@@ -127,7 +165,8 @@ function AdminInterview() {
         method: "DELETE"
       }).then((res) => { 
           if (!res.ok) throw new Error("Failed");
-          fetchQuestions(); addToast("Question deleted.", "success"); 
+          fetchQuestions(selectedCourseId, selectedCategoryFilter); 
+          addToast("Question deleted.", "success"); 
       }).catch(() => addToast("Failed to delete question", "error"));
     }
   };
@@ -139,14 +178,18 @@ function AdminInterview() {
     return { bg: "#e0e7ff", color: "#4f46e5", border: "#c7d2fe" };
   };
 
+  const currentCourse = courses.find(c => c.id === selectedCourseId);
+
   return (
     <AdminLayout>
       <Toast toasts={toasts} removeToast={removeToast} />
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "28px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "28px", flexWrap: "wrap", gap: "16px" }}>
         <div>
           <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#0f172a", margin: 0 }}>Interview Questions</h1>
-          <p style={{ color: "#9ca3af", fontSize: "13px", margin: 0, marginTop: "4px" }}>Manage question bank for the mock interview simulator</p>
+          <p style={{ color: "#9ca3af", fontSize: "13px", margin: 0, marginTop: "4px" }}>
+            Manage course-specific question bank for mock interview simulator
+          </p>
         </div>
         <div style={{ display: "flex", gap: "10px" }}>
           <button
@@ -154,42 +197,87 @@ function AdminInterview() {
               setAiCategory("Beginner");
               setShowAIModal(true);
             }}
-            style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 20px", background: "linear-gradient(135deg,#a855f7,#7c3aed)", color: "#fff", border: "none", borderRadius: "12px", fontWeight: 700, fontSize: "13px", cursor: "pointer", boxShadow: "0 4px 12px rgba(168,85,247,0.4)" }}
+            disabled={!selectedCourseId}
+            style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 20px", background: "linear-gradient(135deg,#a855f7,#7c3aed)", color: "#fff", border: "none", borderRadius: "12px", fontWeight: 700, fontSize: "13px", cursor: "pointer", boxShadow: "0 4px 12px rgba(168,85,247,0.4)", opacity: !selectedCourseId ? 0.6 : 1 }}
           >
             <Sparkles size={17} /> AI Generate
           </button>
           <button
             onClick={() => handleOpenModal()}
-            style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 20px", background: "linear-gradient(135deg,#0ea5e9,#0284c7)", color: "#fff", border: "none", borderRadius: "12px", fontWeight: 700, fontSize: "13px", cursor: "pointer", boxShadow: "0 4px 12px rgba(14,165,233,0.4)" }}
+            disabled={!selectedCourseId}
+            style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 20px", background: "linear-gradient(135deg,#0ea5e9,#0284c7)", color: "#fff", border: "none", borderRadius: "12px", fontWeight: 700, fontSize: "13px", cursor: "pointer", boxShadow: "0 4px 12px rgba(14,165,233,0.4)", opacity: !selectedCourseId ? 0.6 : 1 }}
           >
             <Plus size={17} /> Add Question
           </button>
         </div>
       </div>
 
-      <div style={{ background: "#fff", borderRadius: "14px", padding: "20px 24px", marginBottom: "20px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", border: "1px solid rgba(0,0,0,0.04)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-             <MessageSquare size={20} style={{ color: "#0ea5e9" }} />
-             <span style={{ fontSize: "14px", fontWeight: 600, color: "#374151" }}>Total Database Questions</span>
-         </div>
-         <div style={{ background: "#f0f9ff", color: "#0ea5e9", fontWeight: 700, fontSize: "14px", padding: "10px 20px", borderRadius: "10px" }}>
-            {questions.length} Questions
-         </div>
+      {/* Hierarchical Filter: Course Selector & Category Filter */}
+      <div style={{ background: "#fff", borderRadius: "14px", padding: "20px 24px", marginBottom: "20px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", border: "1px solid rgba(0,0,0,0.04)", display: "flex", alignItems: "center", gap: "24px", flexWrap: "wrap" }}>
+        
+        {/* Course Selector */}
+        <div style={{ minWidth: "260px" }}>
+          <label style={{ ...labelStyle, marginBottom: "8px" }}>Select Course</label>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <BookOpen size={18} style={{ color: "#4f46e5", flexShrink: 0 }} />
+            <select
+              style={{ ...inputStyle, fontWeight: 600, color: "#0f172a" }}
+              value={selectedCourseId}
+              onChange={e => setSelectedCourseId(e.target.value)}
+            >
+              {courses.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Category Filter */}
+        <div style={{ minWidth: "220px" }}>
+          <label style={{ ...labelStyle, marginBottom: "8px" }}>Filter by Category</label>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <Filter size={18} style={{ color: "#0ea5e9", flexShrink: 0 }} />
+            <select
+              style={{ ...inputStyle, fontWeight: 500 }}
+              value={selectedCategoryFilter}
+              onChange={e => setSelectedCategoryFilter(e.target.value)}
+            >
+              <option value="">All Categories</option>
+              <option value="Beginner">Beginner</option>
+              <option value="Intermediate">Intermediate</option>
+              <option value="Advanced">Advanced</option>
+              <option value="System Design">System Design</option>
+              <option value="Behavioral">Behavioral</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Count Stat */}
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "10px" }}>
+          <div style={{ background: "#f0f9ff", color: "#0ea5e9", fontWeight: 700, fontSize: "13px", padding: "8px 16px", borderRadius: "10px" }}>
+            {questions.length} Questions {currentCourse ? `(${currentCourse.name})` : ""}
+          </div>
+        </div>
       </div>
 
       {loading ? (
         <div style={{ textAlign: "center", padding: "60px" }}><div className="spinner-border text-info" /></div>
       ) : questions.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "60px", background: "#fff", borderRadius: "16px" }}>
+        <div style={{ textAlign: "center", padding: "60px", background: "#fff", borderRadius: "16px", border: "1px solid #f1f5f9" }}>
            <List size={56} style={{ color: "#d1d5db", marginBottom: "12px" }} />
-           <h3 style={{ color: "#9ca3af", fontWeight: 500 }}>No interview questions configured yet.</h3>
+           <h3 style={{ color: "#9ca3af", fontWeight: 500, fontSize: "16px" }}>
+             No interview questions configured for this course yet.
+           </h3>
+           <p style={{ color: "#9ca3af", fontSize: "13px", marginTop: "4px" }}>
+             Click &ldquo;AI Generate&rdquo; to auto-generate questions or &ldquo;Add Question&rdquo; to add manually.
+           </p>
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
           {questions.map((q, i) => {
             const catStyles = getCategoryColor(q.category);
             return (
-              <div key={q.id} style={{ background: "#fff", borderRadius: "14px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", border: "1px solid rgba(0,0,0,0.04)" }}>
+              <div key={q.id || i} style={{ background: "#fff", borderRadius: "14px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", border: "1px solid rgba(0,0,0,0.04)" }}>
                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
                    <div>
                       <span style={{ background: catStyles.bg, color: catStyles.color, border: `1px solid ${catStyles.border}`, fontSize: "10px", fontWeight: 700, padding: "3px 8px", borderRadius: "6px", display: "inline-block", marginBottom: "8px" }}>
@@ -231,6 +319,20 @@ function AdminInterview() {
             </div>
             
             <form onSubmit={handleSave}>
+              <div style={{ marginBottom: "14px" }}>
+                <label style={labelStyle}>Target Course</label>
+                <select 
+                  style={inputStyle} 
+                  value={formData.course_id || selectedCourseId} 
+                  onChange={e => setFormData({ ...formData, course_id: e.target.value })} 
+                  required
+                >
+                  {courses.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+
               <div style={{ marginBottom: "14px" }}>
                 <label style={labelStyle}>Category (Difficulty level or Topic)</label>
                 <select style={inputStyle} value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })} required>
@@ -295,6 +397,15 @@ function AdminInterview() {
             </div>
 
             <form onSubmit={handleAIGenerate}>
+              <div style={{ marginBottom: "16px" }}>
+                <label style={labelStyle}>Target Course</label>
+                <input
+                  style={{ ...inputStyle, background: "#f8fafc", color: "#334155", fontWeight: 600, cursor: "not-allowed" }}
+                  value={currentCourse ? currentCourse.name : selectedCourseId}
+                  disabled
+                />
+              </div>
+
               <div style={{ marginBottom: "24px" }}>
                 <label style={labelStyle}>Target Category / Difficulty</label>
                 <select

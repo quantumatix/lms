@@ -27,6 +27,8 @@ from lessons import router as lessons_router
 from exercises import router as exercises_router
 from admin import router as admin_router
 from interview import router as interview_router
+from courses import router as courses_router
+
 
 
 
@@ -58,6 +60,7 @@ app.include_router(lessons_router)
 app.include_router(exercises_router)
 app.include_router(admin_router)
 app.include_router(interview_router, prefix="/interview", tags=["interview"])
+app.include_router(courses_router)
 
 
 

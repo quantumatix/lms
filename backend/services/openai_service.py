@@ -1,3 +1,10 @@
+"""
+openai_service.py — OpenAI-backed AI content generation.
+
+All functions accept a `technology` parameter so that the same
+service generates content for Python, Java, JavaScript, SQL, etc.
+"""
+
 import os
 import json
 from pathlib import Path
@@ -63,9 +70,13 @@ def call_openai_gpt(prompt: str) -> str:
     return response.choices[0].message.content.strip()
 
 
-def generate_python_lesson(topic: str, difficulty: str = "Beginner"):
+# ─────────────────────────────────────────────
+# LESSON
+# ─────────────────────────────────────────────
+
+def generate_lesson(technology: str, topic: str, difficulty: str = "Beginner"):
     prompt = f"""
-Generate a complete Python lesson in JSON format.
+Generate a complete {technology} lesson in JSON format.
 
 Topic: {topic}
 Difficulty: {difficulty}
@@ -75,13 +86,13 @@ Return ONLY valid JSON with this structure:
 {{
   "title": "",
   "description": "",
-  "category": "Python",
+  "category": "{technology}",
   "difficulty": "{difficulty}",
   "theory": "Detailed educational theory text with explanation, headers, and description of the topic in markdown format.",
   "code_examples": [
     {{
       "title": "Example Title",
-      "code": "Python code demonstrating the topic...",
+      "code": "{technology} code demonstrating the topic...",
       "output": "Expected stdout or return value of the code example..."
     }}
   ],
@@ -99,7 +110,7 @@ Return ONLY valid JSON with this structure:
       "title": "Exercise Title",
       "type": "Output Prediction" | "Fill in the Blank" | "Debug the Code" | "Short Coding Exercise" | "Code Completion",
       "question": "Question text explaining what needs to be done",
-      "code": "Python code block related to the question (use empty string if no code is needed)",
+      "code": "{technology} code block related to the question (use empty string if no code is needed)",
       "expected_answer": "The expected solution or answer",
       "hint": "Subtle hint to help the user",
       "explanation": "Detailed explanation of why the expected answer is correct"
@@ -109,7 +120,7 @@ Return ONLY valid JSON with this structure:
     {{
       "title": "Challenge Title",
       "problem": "Problem description showing constraints and requirements",
-      "starter_code": "Initial setup code, like def my_func():",
+      "starter_code": "Initial setup code",
       "expected_output": "The expected return output",
       "sample_input": "Format/Value of sample input",
       "sample_output": "Value/Stdout of sample output",
@@ -132,9 +143,13 @@ Return JSON only.
     return json.loads(text)
 
 
-def generate_python_mcqs(topic: str, count: int = 5, difficulty: str = "Beginner"):
+# ─────────────────────────────────────────────
+# MCQs
+# ─────────────────────────────────────────────
+
+def generate_mcqs(technology: str, topic: str, count: int = 5, difficulty: str = "Beginner"):
     prompt = f"""
-Generate {count} multiple choice questions (MCQ) for Python in JSON format.
+Generate {count} multiple choice questions (MCQ) for {technology} in JSON format.
 Topic: {topic}
 Difficulty: {difficulty}
 
@@ -160,9 +175,13 @@ Return JSON only.
     return extract_list_from_json(data)
 
 
-def generate_python_challenge(topic: str, difficulty: str = "Beginner"):
+# ─────────────────────────────────────────────
+# SINGLE CHALLENGE
+# ─────────────────────────────────────────────
+
+def generate_challenge(technology: str, topic: str, difficulty: str = "Beginner"):
     prompt = f"""
-Generate a Python programming coding challenge in JSON format.
+Generate a {technology} programming coding challenge in JSON format.
 Topic: {topic}
 Difficulty: {difficulty}
 
@@ -184,9 +203,13 @@ Return JSON only.
     return json.loads(text)
 
 
-def generate_python_coding_challenges(topic: str, difficulty: str = "Beginner", count: int = 3):
+# ─────────────────────────────────────────────
+# CODING CHALLENGES (bulk)
+# ─────────────────────────────────────────────
+
+def generate_coding_challenges(technology: str, topic: str, difficulty: str = "Beginner", count: int = 3):
     prompt = f"""
-Generate {count} Python programming coding challenges in JSON format.
+Generate {count} {technology} programming coding challenges in JSON format.
 Topic: {topic}
 Difficulty: {difficulty}
 
@@ -197,7 +220,7 @@ Return ONLY valid JSON with a "challenges" key containing a list of challenges w
       "title": "Challenge Title",
       "problem": "Problem description showing constraints and requirements",
       "difficulty": "{difficulty}",
-      "starter_code": "Initial setup code, like def my_func():",
+      "starter_code": "Initial setup code",
       "expected_output": "The expected return output",
       "sample_input": "Format/Value of sample input",
       "sample_output": "Value/Stdout of sample output",
@@ -222,9 +245,13 @@ Return JSON only.
     return extract_list_from_json(data)
 
 
-def generate_python_practice_exercises(topic: str, difficulty: str = "Beginner", count: int = 5):
+# ─────────────────────────────────────────────
+# PRACTICE EXERCISES
+# ─────────────────────────────────────────────
+
+def generate_practice_exercises(technology: str, topic: str, difficulty: str = "Beginner", count: int = 5):
     prompt = f"""
-Generate {count} Python programming practice exercises in JSON format.
+Generate {count} {technology} programming practice exercises in JSON format.
 Topic: {topic}
 Difficulty: {difficulty}
 
@@ -242,7 +269,7 @@ Instructions:
       "title": "Exercise Title",
       "type": "Output Prediction" | "Fill in the Blank" | "Debug the Code" | "Short Coding Exercise" | "Code Completion",
       "question": "Question text explaining what needs to be done",
-      "code": "Python code block related to the question (use empty string if no code is needed)",
+      "code": "{technology} code block related to the question (use empty string if no code is needed)",
       "expected_answer": "The expected solution or answer",
       "hint": "Subtle hint to help the user",
       "explanation": "Detailed explanation of why the expected answer is correct"
@@ -265,22 +292,24 @@ Return JSON only.
     return extract_list_from_json(data)
 
 
-def generate_interview_questions(username: str, difficulty: str, number_of_questions: int, profile: dict):
+# ─────────────────────────────────────────────
+# INTERVIEW QUESTIONS (mock interview generation)
+# ─────────────────────────────────────────────
+
+def generate_interview_questions(username: str, difficulty: str, number_of_questions: int, profile: dict, technology: str = "Python"):
     weak_topics = profile.get("weak_topics", [])
     strong_topics = profile.get("strong_topics", [])
-    
-    # Calculate exact counts of questions according to key percentages:
-    # 40% Technical Theory, 30% Coding, 20% Scenario-based, 10% Behavioral
+
     technical_count = round(number_of_questions * 0.40)
     coding_count = round(number_of_questions * 0.30)
     scenario_count = round(number_of_questions * 0.20)
     behavioral_count = number_of_questions - (technical_count + coding_count + scenario_count)
-    
+
     if behavioral_count < 0:
         behavioral_count = 0
 
     prompt = f"""
-Generate a personalized Python mock interview in JSON format.
+Generate a personalized {technology} mock interview in JSON format.
 Student Name: {username}
 Selected Difficulty: {difficulty}
 
@@ -301,7 +330,7 @@ Question Distribution:
 Total questions to generate: {number_of_questions}
 
 Rules:
-1. Ground the questions in Python core concepts (Variables, Data Types, Operators, Loops, Functions, OOP, File Handling, Exception Handling, Modules).
+1. Ground the questions in {technology} core concepts relevant to the technology.
 2. The questions should match the difficulty level: {difficulty}.
 3. Prioritize setting the topic of the questions to the student's weak topics. Only use strong topics for a minority of the questions (e.g., 20-30%).
 4. For behavioral questions, the topic can be "General" or a specific professional aspect of programming.
@@ -313,12 +342,12 @@ Example output format:
     {{
       "type": "Technical",
       "topic": "OOP",
-      "question": "Describe encapsulation and how it is implemented in Python."
+      "question": "Describe encapsulation and how it is implemented in {technology}."
     }},
     {{
       "type": "Coding",
       "topic": "Loops",
-      "question": "Write a Python function to solve..."
+      "question": "Write a {technology} function to solve..."
     }},
     {{
       "type": "Scenario",
@@ -343,9 +372,13 @@ Return ONLY the JSON.
     return extract_list_from_json(data)
 
 
-def evaluate_interview_session(qa_list: list):
+# ─────────────────────────────────────────────
+# INTERVIEW EVALUATION
+# ─────────────────────────────────────────────
+
+def evaluate_interview_session(qa_list: list, technology: str = "Python"):
     prompt = f"""
-Evaluate the following student answers from a Python mock interview.
+Evaluate the following student answers from a {technology} mock interview.
 
 Interview Q&A details:
 {json.dumps(qa_list, indent=2)}
@@ -395,3 +428,174 @@ Return ONLY the JSON.
     response_text = call_openai_gpt(prompt)
     text = clean_json_formatting(response_text)
     return json.loads(text)
+
+
+# ─────────────────────────────────────────────
+# INTERVIEW BANK QUESTIONS
+# ─────────────────────────────────────────────
+
+def generate_interview_bank_questions(technology: str, category: str, count: int = 5):
+    prompt = f"""
+Generate {count} {technology} mock interview questions for an interview question bank.
+Category: {category}
+
+For each question, formulate a comprehensive bank item in JSON format:
+- question: The interview question text. Make it realistic and specific to {technology} or software engineering concepts matching the category '{category}'.
+- ideal_answer: A detailed model answer that a candidate should ideally give.
+- keywords: A list of 4-6 specific technical key terms/phrases that must be inside the candidate's answer for scoring.
+- points: A list of 3-4 key conceptual details or hints that suggest missing content if not touched upon.
+
+Return ONLY a valid JSON object containing a "questions" key with list of question objects with this structure:
+{{
+  "questions": [
+    {{
+      "question": "...",
+      "ideal_answer": "...",
+      "keywords": ["...", "..."],
+      "points": ["...", "..."]
+    }}
+  ]
+}}
+
+Do not return markdown formatting blocks.
+Do not return any conversational text.
+Return ONLY the JSON.
+"""
+    response_text = call_openai_gpt(prompt)
+    text = clean_json_formatting(response_text)
+    data = json.loads(text)
+    return extract_list_from_json(data)
+
+
+# ─────────────────────────────────────────────
+# ASSIGNMENTS
+# ─────────────────────────────────────────────
+
+def generate_assignments(technology: str, topic: str, difficulty: str = "Beginner", count: int = 3):
+    prompt = f"""
+Generate {count} {technology} programming assignments in JSON format.
+Topic: {topic}
+Difficulty: {difficulty}
+
+Return ONLY valid JSON with an "assignments" key containing a list:
+{{
+  "assignments": [
+    {{
+      "title": "Assignment Title",
+      "description": "Detailed assignment description and requirements",
+      "objectives": ["Learning objective 1", "Learning objective 2"],
+      "tasks": ["Task 1", "Task 2", "Task 3"],
+      "deliverables": ["What to submit 1", "What to submit 2"],
+      "estimated_time": "e.g. 2-3 hours",
+      "difficulty": "{difficulty}",
+      "hints": ["Hint 1", "Hint 2"],
+      "evaluation_criteria": ["Criterion 1", "Criterion 2"]
+    }}
+  ]
+}}
+
+Do not return markdown.
+Return JSON only.
+"""
+    response_text = call_openai_gpt(prompt)
+    text = clean_json_formatting(response_text)
+    data = json.loads(text)
+    return extract_list_from_json(data)
+
+
+# ─────────────────────────────────────────────
+# PROJECTS
+# ─────────────────────────────────────────────
+
+def generate_projects(technology: str, topic: str, difficulty: str = "Beginner", count: int = 2):
+    prompt = f"""
+Generate {count} {technology} project ideas in JSON format.
+Topic: {topic}
+Difficulty: {difficulty}
+
+Return ONLY valid JSON with a "projects" key containing a list:
+{{
+  "projects": [
+    {{
+      "title": "Project Title",
+      "description": "Detailed project description",
+      "features": ["Feature 1", "Feature 2", "Feature 3"],
+      "tech_stack": ["{technology}", "other tools if needed"],
+      "difficulty": "{difficulty}",
+      "estimated_time": "e.g. 1-2 weeks",
+      "learning_outcomes": ["Outcome 1", "Outcome 2"],
+      "steps": ["Step 1: ...", "Step 2: ...", "Step 3: ..."],
+      "extension_ideas": ["Optional extension 1", "Optional extension 2"]
+    }}
+  ]
+}}
+
+Do not return markdown.
+Return JSON only.
+"""
+    response_text = call_openai_gpt(prompt)
+    text = clean_json_formatting(response_text)
+    data = json.loads(text)
+    return extract_list_from_json(data)
+
+
+# ─────────────────────────────────────────────
+# REVISION MATERIAL
+# ─────────────────────────────────────────────
+
+def generate_revision_material(technology: str, topic: str, difficulty: str = "Beginner"):
+    prompt = f"""
+Generate a complete revision guide for {technology} in JSON format.
+Topic: {topic}
+Difficulty: {difficulty}
+
+Return ONLY valid JSON with this structure:
+{{
+  "title": "Revision: {topic}",
+  "technology": "{technology}",
+  "difficulty": "{difficulty}",
+  "summary": "A concise 2-3 sentence summary of the topic",
+  "key_concepts": [
+    {{
+      "concept": "Concept name",
+      "explanation": "Brief clear explanation",
+      "example": "Short code or text example"
+    }}
+  ],
+  "quick_reference": ["Quick tip 1", "Quick tip 2", "Quick tip 3"],
+  "common_pitfalls": ["Pitfall 1", "Pitfall 2"],
+  "practice_questions": [
+    {{
+      "question": "Quick revision question?",
+      "answer": "Expected answer"
+    }}
+  ],
+  "cheat_sheet": "Key syntax or rules formatted as a short text block"
+}}
+
+Do not return markdown.
+Return JSON only.
+"""
+    response_text = call_openai_gpt(prompt)
+    text = clean_json_formatting(response_text)
+    return json.loads(text)
+
+
+# ─────────────────────────────────────────────
+# BACKWARD-COMPATIBLE ALIASES (deprecated)
+# ─────────────────────────────────────────────
+
+def generate_python_lesson(topic: str, difficulty: str = "Beginner"):
+    return generate_lesson("Python", topic, difficulty)
+
+def generate_python_mcqs(topic: str, count: int = 5, difficulty: str = "Beginner"):
+    return generate_mcqs("Python", topic, count, difficulty)
+
+def generate_python_challenge(topic: str, difficulty: str = "Beginner"):
+    return generate_challenge("Python", topic, difficulty)
+
+def generate_python_coding_challenges(topic: str, difficulty: str = "Beginner", count: int = 3):
+    return generate_coding_challenges("Python", topic, difficulty, count)
+
+def generate_python_practice_exercises(topic: str, difficulty: str = "Beginner", count: int = 5):
+    return generate_practice_exercises("Python", topic, difficulty, count)

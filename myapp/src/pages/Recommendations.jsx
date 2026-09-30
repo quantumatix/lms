@@ -27,7 +27,7 @@ fetch(
           title: "Variables",
           icon: "📘",
           description:
-            "Strengthen Python fundamentals."
+            "Strengthen core programming fundamentals."
         },
         {
           title: "Data Types",
@@ -75,7 +75,7 @@ fetch(
           title: "Projects",
           icon: "🚀",
           description:
-            "Build real-world Python projects."
+            "Build real-world software projects."
         }
       ]);
 

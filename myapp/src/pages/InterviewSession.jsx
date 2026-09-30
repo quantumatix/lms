@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams, useParams, useLocation } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
+import { useCourse } from "../context/CourseContext";
 import { Brain, Clock, ArrowLeft, ArrowRight, Save, CheckCircle2, AlertCircle } from "lucide-react";
 
 function InterviewSession() {
@@ -11,7 +12,10 @@ function InterviewSession() {
 
   const queryInterviewId = searchParams.get("id");
   const stateInterviewId = location.state?.interviewId;
-  const localInterviewId = localStorage.getItem("active_interview_id");
+  const { selectedCourse } = useCourse();
+  const courseId = selectedCourse?.id || "python-core";
+  const courseInterviewKey = `active_interview_id_${courseId}`;
+  const localInterviewId = localStorage.getItem(courseInterviewKey) || (courseId === "python-core" ? localStorage.getItem("active_interview_id") : null);
 
   const interviewId = routeInterviewId || queryInterviewId || stateInterviewId || localInterviewId;
   const username = localStorage.getItem("username");
@@ -35,27 +39,58 @@ function InterviewSession() {
       navigate("/");
       return;
     }
-    if (!interviewId) {
-      setError("No active Interview Session ID provided. Please generate an interview first.");
-      setLoading(false);
-      return;
-    }
 
-    // Fetch session details
+    setLoading(true);
+    setError(null);
+    setSession(null);
+
     const loadSession = async () => {
+      let targetId = interviewId;
+
+      // If no explicit ID in URL/state/local storage, try to fetch the latest session for this course from backend
+      if (!targetId) {
+        try {
+          const latestRes = await fetch(`http://127.0.0.1:8000/interview/session/latest/${username}?course_id=${courseId}`);
+          if (latestRes.ok) {
+            const latestData = await latestRes.json();
+            if (latestData?.session?.interview_id) {
+              targetId = latestData.session.interview_id;
+            }
+          }
+        } catch {
+          // ignore error fetching latest
+        }
+      }
+
+      if (!targetId) {
+        setError(`No active Interview Session for ${selectedCourse?.name || "this course"}. Please generate an interview first.`);
+        setLoading(false);
+        return;
+      }
+
       try {
-        const res = await fetch(`http://127.0.0.1:8000/interview/session/${interviewId}`);
+        const res = await fetch(`http://127.0.0.1:8000/interview/session/${targetId}`);
         if (!res.ok) {
           throw new Error("Unable to retrieve interview session details.");
         }
         const data = await res.json();
+
+        // Enforce course isolation: do not display an interview from a different course
+        if (data.course_id && selectedCourse?.id && data.course_id !== selectedCourse.id) {
+          setError(`This session belongs to ${data.technology || data.course_id}. Please start or generate an interview for ${selectedCourse.name}.`);
+          setSession(null);
+          setLoading(false);
+          return;
+        }
+
         setSession(data);
         if (data.interview_id) {
+          localStorage.setItem(courseInterviewKey, data.interview_id);
           localStorage.setItem("active_interview_id", data.interview_id);
         }
         
         // Fetch saved answers from interview_answers collection for this session
-        const answersRes = await fetch(`http://127.0.0.1:8000/interview/session/${interviewId}/answers?username=${username}`);
+        const answersRes = await fetch(`http://127.0.0.1:8000/interview/session/${targetId}/answers?username=${username}`);
         if (answersRes.ok) {
           const savedAnswers = await answersRes.json();
           const answersDict = {};
@@ -72,7 +107,7 @@ function InterviewSession() {
     };
 
     loadSession();
-  }, [interviewId, username, navigate]);
+  }, [interviewId, username, courseId, navigate]);
 
   // Countdown timer effect
   useEffect(() => {
@@ -257,7 +292,7 @@ function InterviewSession() {
         {/* Top Header & Alert Session Timer */}
         <div className="d-flex flex-wrap align-items-center justify-content-between mb-4 bg-white p-4 rounded-4 shadow-sm border-0">
           <div>
-            <h1 className="h4 fw-bold text-slate-800 m-0">Python Mock Interview Session 💻</h1>
+            <h1 className="h4 fw-bold text-slate-800 m-0">{session.technology || selectedCourse?.technology || "Technical"} Mock Interview Session 💻</h1>
             <p className="text-muted small m-0 mt-1">Difficulty: {session.difficulty} • Username: {session.username}</p>
           </div>
           

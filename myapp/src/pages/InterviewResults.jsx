@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
+import { useCourse } from "../context/CourseContext";
 import { FileText, Calendar, ChevronRight, Award, AlertCircle, Sparkles } from "lucide-react";
 
 function InterviewResults() {
   const navigate = useNavigate();
   const username = localStorage.getItem("username");
+  const { selectedCourse } = useCourse();
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -16,9 +18,14 @@ function InterviewResults() {
       return;
     }
 
+    setLoading(true);
+    setResults([]);
+    setError(null);
+
     const fetchResults = async () => {
       try {
-        const res = await fetch(`http://127.0.0.1:8000/interview/results?username=${username}`);
+        const courseParam = selectedCourse?.id ? `&course_id=${selectedCourse.id}` : "";
+        const res = await fetch(`http://127.0.0.1:8000/interview/results?username=${username}${courseParam}`);
         if (!res.ok) {
           throw new Error("Failed to load interview results.");
         }
@@ -32,7 +39,7 @@ function InterviewResults() {
     };
 
     fetchResults();
-  }, [username, navigate]);
+  }, [username, selectedCourse?.id, navigate]);
 
   if (loading) {
     return (

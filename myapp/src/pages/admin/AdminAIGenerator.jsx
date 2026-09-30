@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import AdminLayout from "../../components/AdminLayout";
-import { Sparkles, BookOpen, Code2, HelpCircle, Loader2, ClipboardList } from "lucide-react";
+import { Sparkles, BookOpen, Code2, HelpCircle, Loader2, ClipboardList, Layers } from "lucide-react";
 
 const API_BASE = "http://localhost:8000";
 
@@ -10,14 +10,31 @@ function AdminAIGenerator() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [lessons, setLessons] = useState([]);
+  const [courses, setCourses] = useState([]);
+  const [selectedCourseId, setSelectedCourseId] = useState("python-core");
 
   const [lessonForm, setLessonForm] = useState({ topic: "", difficulty: "beginner" });
   const [mcqForm, setMcqForm] = useState({ topic: "", number_of_questions: 5, difficulty: "beginner", lesson_id: "" });
   const [codeForm, setCodeForm] = useState({ topic: "", number_of_challenges: 3, difficulty: "beginner", lesson_id: "" });
   const [exerciseForm, setExerciseForm] = useState({ topic: "", number_of_exercises: 5, difficulty: "beginner", lesson_id: "" });
 
+  // Load all courses
   useEffect(() => {
-    fetch(`${API_BASE}/lessons?username=admin@lms.com`)
+    fetch(`${API_BASE}/admin/courses`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setCourses(data);
+          setSelectedCourseId(data[0].id);
+        }
+      })
+      .catch((err) => console.error("Error fetching courses:", err));
+  }, []);
+
+  // When selectedCourseId changes, fetch lessons for that course
+  useEffect(() => {
+    if (!selectedCourseId) return;
+    fetch(`${API_BASE}/lessons?username=admin@lms.com&course_id=${selectedCourseId}`)
       .then((r) => r.json())
       .then((data) => {
         const flat = [];
@@ -27,10 +44,14 @@ function AdminAIGenerator() {
           setMcqForm((prev) => ({ ...prev, lesson_id: flat[0].id }));
           setCodeForm((prev) => ({ ...prev, lesson_id: flat[0].id }));
           setExerciseForm((prev) => ({ ...prev, lesson_id: flat[0].id }));
+        } else {
+          setMcqForm((prev) => ({ ...prev, lesson_id: "" }));
+          setCodeForm((prev) => ({ ...prev, lesson_id: "" }));
+          setExerciseForm((prev) => ({ ...prev, lesson_id: "" }));
         }
       })
       .catch((err) => console.error("Error fetching lessons:", err));
-  }, []);
+  }, [selectedCourseId]);
 
   const token = localStorage.getItem("token");
 
@@ -45,16 +66,16 @@ function AdminAIGenerator() {
 
       if (activeTab === "lesson") {
         endpoint = "/admin/ai/generate-lesson";
-        body = lessonForm;
+        body = { ...lessonForm, course_id: selectedCourseId };
       } else if (activeTab === "mcq") {
         endpoint = "/admin/ai/generate-mcq";
-        body = mcqForm;
+        body = { ...mcqForm, course_id: selectedCourseId };
       } else if (activeTab === "code") {
         endpoint = "/admin/ai/generate-coding-challenges";
-        body = codeForm;
+        body = { ...codeForm, course_id: selectedCourseId };
       } else {
         endpoint = "/admin/ai/generate-practice-exercises";
-        body = exerciseForm;
+        body = { ...exerciseForm, course_id: selectedCourseId };
       }
 
       // Check if topic is blank
@@ -96,14 +117,39 @@ function AdminAIGenerator() {
     }
   };
 
+  const selectedTech = courses.find((c) => c.id === selectedCourseId)?.technology || "Python";
+
   return (
     <AdminLayout>
       {/* Header */}
-      <div className="mb-4">
-        <h1 className="h3 fw-bold mb-1 d-flex align-items-center gap-2">
-          <Sparkles size={22} className="text-warning" /> AI Content Generator
-        </h1>
-        <p className="text-muted mb-0">Generate lessons, MCQs, coding challenges, and practice exercises using Gemini AI</p>
+      <div className="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div>
+          <h1 className="h3 fw-bold mb-1 d-flex align-items-center gap-2">
+            <Sparkles size={22} className="text-warning" /> AI Content Generator
+          </h1>
+          <p className="text-muted mb-0">Generate course-specific lessons, MCQs, coding challenges, and exercises.</p>
+        </div>
+
+        {/* Course Selector Dropdown */}
+        <div className="d-flex align-items-center gap-2 bg-white px-3 py-2 rounded-3 border shadow-sm">
+          <Layers size={18} className="text-primary" />
+          <span className="fw-semibold small text-muted">Target Course:</span>
+          <select
+            value={selectedCourseId}
+            onChange={(e) => {
+              setSelectedCourseId(e.target.value);
+              setResult(null);
+            }}
+            className="form-select form-select-sm border-0 fw-bold text-dark bg-transparent"
+            style={{ width: "auto", cursor: "pointer", boxShadow: "none" }}
+          >
+            {courses.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name} ({c.technology})
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -137,7 +183,7 @@ function AdminAIGenerator() {
                   <label className="form-label small fw-semibold">Topic</label>
                   <input
                     className="form-control"
-                    placeholder="e.g. Python Lists"
+                    placeholder={`e.g. ${selectedTech} Fundamentals, OOP, or Async`}
                     value={lessonForm.topic}
                     onChange={(e) => setLessonForm({ ...lessonForm, topic: e.target.value })}
                   />
@@ -162,19 +208,24 @@ function AdminAIGenerator() {
                     value={mcqForm.lesson_id}
                     onChange={(e) => setMcqForm({ ...mcqForm, lesson_id: e.target.value })}
                   >
-                    <option value="">-- Select Lesson --</option>
+                    <option value="">{lessons.length === 0 ? "-- No lessons in this course yet --" : "-- Select Lesson --"}</option>
                     {lessons.map((l) => (
                       <option key={l.id} value={l.id}>
                         {l.title} ({l.id})
                       </option>
                     ))}
                   </select>
+                  {lessons.length === 0 && (
+                    <div className="alert alert-warning py-1 px-2 small mt-2 mb-0" style={{ fontSize: "11px" }}>
+                      ⚠️ This course has no lessons yet. Please generate a lesson under the &ldquo;Lesson&rdquo; tab first.
+                    </div>
+                  )}
                 </div>
                 <div className="mb-3">
                   <label className="form-label small fw-semibold">Topic</label>
                   <input
                     className="form-control"
-                    placeholder="e.g. Python Dictionaries"
+                    placeholder={`e.g. ${selectedTech} Syntax or Structures`}
                     value={mcqForm.topic}
                     onChange={(e) => setMcqForm({ ...mcqForm, topic: e.target.value })}
                   />
@@ -210,13 +261,18 @@ function AdminAIGenerator() {
                     value={codeForm.lesson_id}
                     onChange={(e) => setCodeForm({ ...codeForm, lesson_id: e.target.value })}
                   >
-                    <option value="">-- Select Lesson --</option>
+                    <option value="">{lessons.length === 0 ? "-- No lessons in this course yet --" : "-- Select Lesson --"}</option>
                     {lessons.map((l) => (
                       <option key={l.id} value={l.id}>
                         {l.title} ({l.id})
                       </option>
                     ))}
                   </select>
+                  {lessons.length === 0 && (
+                    <div className="alert alert-warning py-1 px-2 small mt-2 mb-0" style={{ fontSize: "11px" }}>
+                      ⚠️ This course has no lessons yet. Please generate a lesson under the &ldquo;Lesson&rdquo; tab first.
+                    </div>
+                  )}
                 </div>
                 <div className="mb-3">
                   <label className="form-label small fw-semibold">Topic</label>
@@ -258,13 +314,18 @@ function AdminAIGenerator() {
                     value={exerciseForm.lesson_id}
                     onChange={(e) => setExerciseForm({ ...exerciseForm, lesson_id: e.target.value })}
                   >
-                    <option value="">-- Select Lesson --</option>
+                    <option value="">{lessons.length === 0 ? "-- No lessons in this course yet --" : "-- Select Lesson --"}</option>
                     {lessons.map((l) => (
                       <option key={l.id} value={l.id}>
                         {l.title} ({l.id})
                       </option>
                     ))}
                   </select>
+                  {lessons.length === 0 && (
+                    <div className="alert alert-warning py-1 px-2 small mt-2 mb-0" style={{ fontSize: "11px" }}>
+                      ⚠️ This course has no lessons yet. Please generate a lesson under the &ldquo;Lesson&rdquo; tab first.
+                    </div>
+                  )}
                 </div>
                 <div className="mb-3">
                   <label className="form-label small fw-semibold">Topic</label>
@@ -300,8 +361,9 @@ function AdminAIGenerator() {
             <button
               className="btn btn-primary w-100 d-flex align-items-center justify-content-center gap-2"
               onClick={handleGenerate}
-              disabled={loading}
-              style={{ backgroundColor: "#4f46e5", borderColor: "#4f46e5" }}
+              disabled={loading || (activeTab !== "lesson" && lessons.length === 0)}
+              style={{ backgroundColor: "#4f46e5", borderColor: "#4f46e5", opacity: (activeTab !== "lesson" && lessons.length === 0) ? 0.6 : 1 }}
+              title={activeTab !== "lesson" && lessons.length === 0 ? "Please create or generate a lesson for this course first" : ""}
             >
               {loading ? <><Loader2 size={16} className="spin" /> Generating...</> : <><Sparkles size={16} /> Generate</>}
             </button>

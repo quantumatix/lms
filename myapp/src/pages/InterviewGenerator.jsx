@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import { Sparkles, Brain, AlertCircle, Loader2 } from "lucide-react";
+import { useCourse } from "../context/CourseContext";
 
 function InterviewGenerator() {
   const navigate = useNavigate();
@@ -10,6 +11,7 @@ function InterviewGenerator() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [interviewData, setInterviewData] = useState(null);
+  const { selectedCourse } = useCourse();
   
   const username = localStorage.getItem("username");
 
@@ -35,6 +37,7 @@ function InterviewGenerator() {
           username: username,
           difficulty: difficulty,
           number_of_questions: parseInt(numQuestions),
+          course_id: selectedCourse?.id || "python-core"
         }),
       });
 

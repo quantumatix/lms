@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
+import { useCourse } from "../context/CourseContext";
 import { 
   Trophy, 
   ChevronRight, 
@@ -12,6 +13,7 @@ import {
 
 function MockInterview() {
   const navigate = useNavigate();
+  const { selectedCourse } = useCourse();
   const [questions, setQuestions] = useState([]);
   const [currentStep, setCurrentStep] = useState(0); // 0: Start, 1-5: Questions, 6: Result
   const [answers, setAnswers] = useState({});
@@ -21,13 +23,15 @@ function MockInterview() {
 
   const startInterview = () => {
     setLoading(true);
-    fetch("http://127.0.0.1:8000/interview/mock/start")
+    const courseId = selectedCourse?.id || "python-core";
+    fetch(`http://127.0.0.1:8000/interview/mock/start?course_id=${courseId}`)
       .then(res => res.json())
       .then(data => {
-        setQuestions(data);
+        setQuestions(Array.isArray(data) ? data : []);
         setCurrentStep(1);
         setLoading(false);
-      });
+      })
+      .catch(() => setLoading(false));
   };
 
   const handleNext = (currentAnswer) => {
@@ -55,6 +59,7 @@ function MockInterview() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         username,
+        course_id: selectedCourse?.id || "python-core",
         results: results
       })
     })
@@ -79,8 +84,8 @@ function MockInterview() {
                 <div className="bg-indigo-500 text-white rounded-circle p-4 d-inline-flex mb-4">
                    <MessageCircle size={48} />
                 </div>
-                <h2 className="text-white fw-bold mb-3">AI Mock Interview</h2>
-                <p className="text-slate-400 mb-5">You will be asked 5 random questions across different Python topics. Try to be as detailed as possible. The AI will evaluate your answers and provide a score.</p>
+                <h2 className="text-white fw-bold mb-3">{selectedCourse?.technology || "AI"} Mock Interview</h2>
+                <p className="text-slate-400 mb-5">You will be asked 5 random questions across different {selectedCourse?.technology || "programming"} topics. Try to be as detailed as possible. The AI will evaluate your answers and provide a score.</p>
                 <button 
                   onClick={startInterview}
                   disabled={loading}

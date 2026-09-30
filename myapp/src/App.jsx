@@ -29,6 +29,8 @@ import AdminQuestions from "./pages/admin/AdminQuestions";
 import AdminExercises from "./pages/admin/AdminExercises";
 import AdminChallenges from "./pages/admin/AdminChallenges";
 import AdminInterview from "./pages/admin/AdminInterview";
+import AdminCourses from "./pages/admin/AdminCourses";
+
 import InterviewPrep from "./pages/InterviewPrep";
 import MockInterview from "./pages/MockInterview";
 import InterviewDashboard from "./pages/InterviewDashboard";
@@ -313,6 +315,15 @@ function App() {
           element={
             <ProtectedRoute requiredRole="admin">
               <AdminInterview />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/courses"
+          element={
+            <ProtectedRoute requiredRole="admin">
+              <AdminCourses />
             </ProtectedRoute>
           }
         />

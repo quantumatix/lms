@@ -30,16 +30,17 @@ def get_progress(username: str):
 
     return user 
 @router.get("/add-xp/{username}/{xp}")
-def add_xp(username: str, xp: int):
+def add_xp(username: str, xp: int, course_id: str = "python-core"):
 
     user = progress_collection.find_one(
         {"username": username}
     )
 
     if not user:
-        return {"message": "User not found"}
+        user = {"username": username, "xp": 0, "level": "Beginner", "progress": 0}
+        progress_collection.insert_one(user)
 
-    new_xp = user["xp"] + xp
+    new_xp = user.get("xp", 0) + xp
 
     if new_xp >= 200:
         level = "Advanced"
@@ -61,8 +62,19 @@ def add_xp(username: str, xp: int):
         }
     )
 
+    # Also update db["progress"] for this specific course
+    db["progress"].update_one(
+        {"username": username, "course_id": course_id},
+        {
+            "$inc": {"xp": xp},
+            "$set": {"course_id": course_id, "level": level}
+        },
+        upsert=True
+    )
+
     return {
         "xp": new_xp,
         "level": level,
-        "progress": progress
+        "progress": progress,
+        "course_id": course_id
     }

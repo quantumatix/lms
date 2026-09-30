@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Sidebar from "../components/Sidebar";
+import { useCourse } from "../context/CourseContext";
 import { 
   ClipboardCheck, 
   ChevronRight, 
@@ -10,6 +11,7 @@ import {
 } from "lucide-react";
 
 function Assessment() {
+  const { selectedCourse } = useCourse();
   const [score, setScore] = useState(0);
   const [level, setLevel] = useState("");
   const [answers, setAnswers] = useState({});
@@ -64,7 +66,7 @@ function Assessment() {
               <ClipboardCheck size={32} />
             </div>
             <h1 className="display-6 fw-bold text-dark mb-2">Initial Assessment</h1>
-            <p className="text-muted">Tell us what you already know so we can customize your Python learning path.</p>
+            <p className="text-muted">Tell us what you already know so we can customize your {selectedCourse?.name || "learning"} path.</p>
           </div>
 
           <div className="d-flex flex-column gap-3 mb-5">
@@ -120,7 +122,7 @@ function Assessment() {
              <HelpCircle size={24} className="text-muted mt-1" />
              <div>
                 <h6 className="fw-bold text-dark mb-1">Why this assessment?</h6>
-                <p className="text-muted small mb-0">This helps our AI prioritize specific topics for you. Don't worry, you can still access the complete Python syllabus at any level.</p>
+                <p className="text-muted small mb-0">This helps our AI prioritize specific topics for you. Don't worry, you can still access the complete {selectedCourse?.name || "course"} syllabus at any level.</p>
              </div>
           </div>
 

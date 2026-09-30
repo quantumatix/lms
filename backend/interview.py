@@ -11,9 +11,10 @@ questions_collection = db["interview_questions"]
 mock_sessions_collection = db["mock_interviews"]
 
 @router.get("/questions")
-def get_questions(category: str = None):
+def get_questions(category: str = None, course_id: str = None):
     query = {}
     if category: query["category"] = category
+    if course_id: query["course_id"] = course_id
     return list(questions_collection.find(query, {"_id": 0}))
 
 @router.post("/evaluate")
@@ -56,9 +57,14 @@ def evaluate_answer(data: dict):
             
         eval_report = evaluate_interview_session(qa_list)
         
+        course_id = mock_doc.get("course_id", "python-core")
+        technology = mock_doc.get("technology", "Python")
+
         result_doc = {
             "interview_id": interview_id,
             "username": username,
+            "course_id": course_id,
+            "technology": technology,
             "overall_score": eval_report.get("overall_score", 0),
             "percentage": eval_report.get("percentage", 0),
             "communication": eval_report.get("communication", 0),
@@ -107,10 +113,40 @@ def evaluate_answer(data: dict):
         }
 
 @router.get("/mock/start")
-def start_mock_interview():
-    # Fetch 5 random questions across categories
-    all_q = list(questions_collection.find({}, {"_id": 0}))
-    selected = random.sample(all_q, min(5, len(all_q)))
+def start_mock_interview(course_id: str = None):
+    query = {}
+    if course_id:
+        if course_id == "python-core":
+            query["$or"] = [{"course_id": "python-core"}, {"course_id": {"$exists": False}}, {"course_id": None}]
+        else:
+            query["course_id"] = course_id
+    all_q = list(questions_collection.find(query, {"_id": 0}))
+
+    # If no questions found for this course, auto-generate starter questions for this technology
+    if not all_q and course_id:
+        course = db["courses"].find_one({"id": course_id})
+        tech = course.get("technology", "Programming") if course else "Programming"
+        try:
+            from services.ai_service import generate_interview_bank_questions
+            import uuid
+            generated = generate_interview_bank_questions(technology=tech, category="General", count=5)
+            for item in generated:
+                q_doc = {
+                    "id": f"int_{uuid.uuid4().hex[:8]}",
+                    "category": "Beginner",
+                    "course_id": course_id,
+                    "question": item.get("question", ""),
+                    "ideal_answer": item.get("ideal_answer", ""),
+                    "keywords": item.get("keywords", []),
+                    "points": item.get("points", []),
+                    "created_at": datetime.now().isoformat()
+                }
+                questions_collection.insert_one(q_doc)
+                all_q.append({k: v for k, v in q_doc.items() if k != "_id"})
+        except Exception as e:
+            print("Auto-generate interview bank failed:", e)
+
+    selected = random.sample(all_q, min(5, len(all_q))) if all_q else []
     return selected
 
 @router.post("/mock/submit")
@@ -120,9 +156,14 @@ def submit_mock_results(data: dict):
     results = data["results"] # List of {question_id, score, answer}
     total_score = sum([r["score"] for r in results])
     avg_score = total_score / len(results) if results else 0
+    course_id = data.get("course_id", "python-core")
+    course = db["courses"].find_one({"id": course_id})
+    technology = course.get("technology", "Python") if course else "Python"
     
     session = {
         "username": username,
+        "course_id": course_id,
+        "technology": technology,
         "avg_score": avg_score,
         "results": results,
         "timestamp": datetime.now().isoformat()
@@ -131,12 +172,18 @@ def submit_mock_results(data: dict):
     return {"message": "Mock interview saved", "avg_score": avg_score}
 
 @router.get("/history/{username}")
-def get_interview_history(username: str):
-    return list(mock_sessions_collection.find({"username": username}, {"_id": 0}).sort("timestamp", -1))
+def get_interview_history(username: str, course_id: str = None):
+    query = {"username": username}
+    if course_id:
+        if course_id == "python-core":
+            query["$or"] = [{"course_id": "python-core"}, {"course_id": {"$exists": False}}, {"course_id": None}]
+        else:
+            query["course_id"] = course_id
+    return list(mock_sessions_collection.find(query, {"_id": 0}).sort("timestamp", -1))
 
 
 @router.get("/skill-analysis/{username}")
-def get_skill_analysis(username: str):
+def get_skill_analysis(username: str, course_id: str = None):
     # Try to find user by name or email
     user = db["users"].find_one({"name": username})
     if not user:
@@ -147,9 +194,18 @@ def get_skill_analysis(username: str):
         
     actual_username = user.get("name", username)
     email = user.get("email", "")
+
+    course = db["courses"].find_one({"id": course_id}) if course_id else None
+    technology = course.get("technology", "Python") if course else "Python"
     
     # 1. Total lessons count
-    total_lessons = db["lessons"].count_documents({})
+    lesson_q = {}
+    if course_id:
+        if course_id == "python-core":
+            lesson_q = {"$or": [{"course_id": "python-core"}, {"course_id": {"$exists": False}}, {"course_id": None}]}
+        else:
+            lesson_q = {"course_id": course_id}
+    total_lessons = db["lessons"].count_documents(lesson_q)
     
     # 2. Progress and XP
     completed_lessons_docs = list(db["user_lessons_progress"].find({
@@ -163,44 +219,56 @@ def get_skill_analysis(username: str):
     overall_progress = round((completed_count / total_lessons) * 100) if total_lessons > 0 else 0
     
     xp = 0
-    up_doc = db["user_progress"].find_one({"username": actual_username})
-    if not up_doc and email:
-        up_doc = db["user_progress"].find_one({"username": email})
-    if up_doc:
-        xp = up_doc.get("xp", 0)
-    else:
+    p_filter = {"username": actual_username}
+    if course_id:
+        p_filter["course_id"] = course_id
+    p_doc = db["progress"].find_one(p_filter)
+    if not p_doc and email:
+        p_filter_email = {"username": email}
+        if course_id:
+            p_filter_email["course_id"] = course_id
+        p_doc = db["progress"].find_one(p_filter_email)
+    if not p_doc and (not course_id or course_id == "python-core"):
         p_doc = db["progress"].find_one({"username": actual_username})
-        if not p_doc and email:
-            p_doc = db["progress"].find_one({"username": email})
-        if p_doc:
-            xp = p_doc.get("xp", 0) or p_doc.get("score", 0) or 0
+
+    if p_doc:
+        xp = p_doc.get("xp", 0) or p_doc.get("score", 0) or 0
     
     # 3. MCQ Analysis
-    mcq_results_docs = list(db["mcq_results"].find({"$or": [{"username": actual_username}, {"username": email}]}))
+    mcq_filter = {"$or": [{"username": actual_username}, {"username": email}]}
+    if course_id:
+        mcq_filter = {"$and": [mcq_filter, {"course_id": course_id}]}
+    mcq_results_docs = list(db["mcq_results"].find(mcq_filter))
     mcq_attempted = sum(d.get("total", 0) for d in mcq_results_docs)
     mcq_correct = sum(d.get("score", 0) for d in mcq_results_docs)
     mcq_wrong = max(0, mcq_attempted - mcq_correct)
     mcq_accuracy = round((mcq_correct / mcq_attempted) * 100) if mcq_attempted > 0 else 0
     
     # 4. Coding Analysis
-    coding_attempts = list(db["coding_results"].find({"$or": [
+    coding_filter = {"$or": [
         {"username": actual_username},
         {"email": email},
         {"username": email},
         {"email": actual_username}
-    ]}))
+    ]}
+    if course_id:
+        coding_filter = {"$and": [coding_filter, {"course_id": course_id}]}
+    coding_attempts = list(db["coding_results"].find(coding_filter))
     coding_attempted = len(coding_attempts)
     coding_passed = len([c for c in coding_attempts if c.get("status") == "Passed" or c.get("result") == "Correct"])
     coding_failed = max(0, coding_attempted - coding_passed)
     coding_success_rate = round((coding_passed / coding_attempted) * 100) if coding_attempted > 0 else 0
     
     # 5. Practice Exercise Analysis
-    practice_attempts = list(db["practice_history"].find({"$or": [{"username": actual_username}, {"username": email}]}))
+    practice_filter = {"$or": [{"username": actual_username}, {"username": email}]}
+    if course_id:
+        practice_filter = {"$and": [practice_filter, {"course_id": course_id}]}
+    practice_attempts = list(db["practice_history"].find(practice_filter))
     practice_attempted = len(practice_attempts)
     practice_completed = len([p for p in practice_attempts if p.get("status") in ["success", "completed", "Passed"]])
     practice_average = round((practice_completed / practice_attempted) * 100) if practice_attempted > 0 else 0
     
-    # 6. Topic-wise calculations (exact 9 topics requested of Python Core)
+    # 6. Topic-wise calculations
     topics_list = [
         "Variables", "Data Types", "Operators", "Loops", "Functions",
         "OOP", "File Handling", "Exception Handling", "Modules"
@@ -229,9 +297,23 @@ def get_skill_analysis(username: str):
         "Exception Handling": ["exception", "try", "except", "raise", "error"],
         "Modules": ["module", "package", "import", "pip"]
     }
+
+    if course_id and course_id != "python-core":
+        course_lessons = list(db["lessons"].find({"course_id": course_id}))
+        if course_lessons:
+            cat_map = {}
+            for l in course_lessons:
+                cat = l.get("category_title") or l.get("title") or "General"
+                cat_map.setdefault(cat, []).append(l.get("id"))
+            topics_list = list(cat_map.keys())[:9]
+            TOPIC_LESSONS = {cat: cat_map[cat] for cat in topics_list}
+            TOPIC_KEYWORDS = {cat: [w.lower() for w in cat.split()] for cat in topics_list}
     
     # Pre-load mistakes for keyword matching
-    mistakes_docs = list(db["mcq_mistakes"].find({"$or": [{"username": actual_username}, {"username": email}]}))
+    mistakes_filter = {"$or": [{"username": actual_username}, {"username": email}]}
+    if course_id:
+        mistakes_filter = {"$and": [mistakes_filter, {"course_id": course_id}]}
+    mistakes_docs = list(db["mcq_mistakes"].find(mistakes_filter))
     
     skills = []
     strong_topics = []
@@ -320,7 +402,10 @@ def get_skill_analysis(username: str):
         "practice_average": practice_average,
         "skills": skills,
         "strong_topics": strong_topics,
-        "weak_topics": weak_topics
+        "weak_topics": weak_topics,
+        "technology": technology,
+        "course_id": course_id or "python-core",
+        "total_lessons": total_lessons
     }
 
 
@@ -332,30 +417,44 @@ class InterviewRequest(BaseModel):
     username: str
     difficulty: str = "Beginner"
     number_of_questions: int = 10
+    course_id: str = "python-core"
 
 @router.post("/generate")
 def generate_interview_endpoint(req: InterviewRequest):
     username = req.username
     difficulty = req.difficulty
     number_of_questions = req.number_of_questions
+    course_id = req.course_id or "python-core"
     
+    # Resolve technology
+    course = db["courses"].find_one({"id": course_id})
+    technology = course.get("technology", "Python") if course else "Python"
+
     # 1. Fetch skill profile
     try:
-        profile = get_skill_analysis(username)
+        profile = get_skill_analysis(username, course_id=course_id)
     except HTTPException as e:
         raise e
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
         
-    # 2. Call Gemini AI helper to generate questions
+    # 2. Call AI helper to generate questions
     try:
-        questions = generate_interview_questions(username, difficulty, number_of_questions, profile)
+        questions = generate_interview_questions(
+            username=username,
+            difficulty=difficulty,
+            number_of_questions=number_of_questions,
+            profile=profile,
+            technology=technology
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate interview via AI: {str(e)}")
         
     # 3. Store to MongoDB in mock_interviews collection
     doc = {
         "username": username,
+        "course_id": course_id,
+        "technology": technology,
         "difficulty": difficulty,
         "created_at": datetime.now().isoformat(),
         "questions": questions
@@ -368,9 +467,11 @@ def generate_interview_endpoint(req: InterviewRequest):
         "interview_id": doc_id,
         "username": username,
         "difficulty": difficulty,
+        "course_id": course_id,
         "total_questions": len(questions),
         "questions": questions
     }
+
 
 
 from bson import ObjectId
@@ -405,6 +506,8 @@ def get_interview_session(interview_id: str):
         "interview_id": str(doc["_id"]),
         "username": doc.get("username"),
         "difficulty": doc.get("difficulty"),
+        "course_id": doc.get("course_id", "python-core"),
+        "technology": doc.get("technology", "Python"),
         "total_questions": len(questions),
         "questions": questions
     }
@@ -454,8 +557,11 @@ def get_session_answers(interview_id: str, username: str):
 
 
 @router.get("/results")
-def get_user_interview_results(username: str):
-    return list(db["interview_results"].find({"username": username}, {"_id": 0}).sort("evaluated_at", -1))
+def get_user_interview_results(username: str, course_id: str = None):
+    query = {"username": username}
+    if course_id:
+        query["course_id"] = course_id
+    return list(db["interview_results"].find(query, {"_id": 0}).sort("evaluated_at", -1))
 
 
 @router.get("/result/{interview_id}")
@@ -467,3 +573,24 @@ def get_interview_result_by_id(interview_id: str, username: str = None):
     if not doc:
         raise HTTPException(status_code=404, detail="Interview result not found")
     return doc
+
+
+@router.get("/session/latest/{username}")
+def get_latest_interview_session(username: str, course_id: str = None):
+    query = {"username": username}
+    if course_id:
+        query["course_id"] = course_id
+    doc = db["mock_interviews"].find_one(query, sort=[("created_at", -1)])
+    if not doc:
+        return {"session": None}
+    return {
+        "session": {
+            "interview_id": str(doc["_id"]),
+            "username": doc.get("username"),
+            "course_id": doc.get("course_id", "python-core"),
+            "technology": doc.get("technology", "Python"),
+            "difficulty": doc.get("difficulty"),
+            "created_at": doc.get("created_at")
+        }
+    }
+

@@ -12,6 +12,7 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Sidebar from "../components/Sidebar";
+import { useCourse } from "../context/CourseContext";
 import { 
   Flame, 
   Trophy, 
@@ -33,6 +34,7 @@ import {
 
 function Dashboard() {
   const navigate = useNavigate();
+  const { selectedCourse } = useCourse();
   const [progress, setProgress] = useState(null);
   const [analytics, setAnalytics] = useState(null);
   const [codingAnalytics, setCodingAnalytics] = useState(null);
@@ -50,48 +52,59 @@ function Dashboard() {
       return;
     }
 
-    // Existing API Fetches
-    fetch(`http://127.0.0.1:8000/progress/${username}`)
+    // Reset state on course change to avoid stale data flashing
+    setProgress(null);
+    setAnalytics(null);
+    setCodingAnalytics(null);
+    setChartData([]);
+    setMistakes([]);
+    setWeakTopics(null);
+    setRecommendedLessons([]);
+
+    const courseId = selectedCourse?.id || "python-core";
+    const courseParam = `?course_id=${courseId}`;
+
+    fetch(`http://127.0.0.1:8000/progress/${username}${courseParam}`)
       .then((res) => res.json())
       .then((data) => setProgress(data))
       .catch((err) => console.log(err));
 
-    fetch(`http://127.0.0.1:8000/analytics/${username}`)
+    fetch(`http://127.0.0.1:8000/analytics/${username}${courseParam}`)
       .then((res) => res.json())
       .then((data) => setAnalytics(data))
       .catch((err) => console.log(err));
 
-    fetch("http://127.0.0.1:8000/coding-analytics")
+    fetch(`http://127.0.0.1:8000/coding-analytics${courseParam}&username=${username}`)
       .then((res) => res.json())
       .then((data) => setCodingAnalytics(data))
       .catch((err) => console.log(err));
 
-    fetch(`http://127.0.0.1:8000/score-history/${username}`)
+    fetch(`http://127.0.0.1:8000/score-history/${username}${courseParam}`)
       .then((res) => res.json())
       .then((data) => setChartData(data))
       .catch((err) => console.log(err));
 
-    fetch(`http://127.0.0.1:8000/adaptive-recommendations/${username}`)
+    fetch(`http://127.0.0.1:8000/adaptive-recommendations/${username}${courseParam}`)
       .then((res) => res.json())
       .then((data) => setAdaptiveRecommendations(data))
       .catch((err) => console.log(err));
 
-    fetch(`http://127.0.0.1:8000/daily-review/${username}`)
+    fetch(`http://127.0.0.1:8000/daily-review/${username}${courseParam}`)
       .then((res) => res.json())
       .then((data) => setMistakes(data))
       .catch((err) => console.log(err));
 
-    fetch(`http://127.0.0.1:8000/weak-topics/${username}`)
+    fetch(`http://127.0.0.1:8000/weak-topics/${username}${courseParam}`)
       .then((res) => res.json())
       .then((data) => setWeakTopics(data))
       .catch((err) => console.log(err));
 
-    fetch(`http://127.0.0.1:8000/lessons/recommendations/${username}`)
+    fetch(`http://127.0.0.1:8000/lessons/recommendations/${username}${courseParam}`)
       .then((res) => res.json())
       .then((data) => setRecommendedLessons(data))
       .catch((err) => console.log(err));
 
-  }, [navigate]);
+  }, [navigate, selectedCourse?.id]);
 
   const username = localStorage.getItem("username") || "Learner";
 
@@ -111,7 +124,7 @@ function Dashboard() {
                 Welcome Back, {username} 👋
               </h1>
               <p className="text-muted fs-6 mb-4">
-                You've completed <span className="text-dark fw-bold">{progress?.progress || 0}%</span> of your Python path. Keep it up!
+                You've completed <span className="text-dark fw-bold">{progress?.progress || 0}%</span> of your {selectedCourse?.name || "learning"} path. Keep it up!
               </p>
               <button 
                 onClick={() => navigate("/lessons")}
@@ -147,7 +160,7 @@ function Dashboard() {
                   <div className="d-flex justify-content-between align-items-start mb-4">
                     <div>
                       <h5 className="fw-bold mb-1">Learning Progress</h5>
-                      <p className="text-muted small mb-0">Current Course: Python Foundation</p>
+                      <p className="text-muted small mb-0">Current Course: {selectedCourse?.name || "Course Foundation"}</p>
                     </div>
                     <span className="badge rounded-pill bg-primary-light text-primary border border-primary-subtle px-3 py-2">
                        {progress?.level || "Beginner"} Level
