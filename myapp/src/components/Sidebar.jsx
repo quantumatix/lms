@@ -26,7 +26,13 @@ function Sidebar() {
   const userRole = localStorage.getItem("userRole");
   const location = useLocation();
   const [curriculum, setCurriculum] = useState([]);
-  const { selectedCourse, setSelectedCourse, courses } = useCourse();
+  const { selectedCourse, setSelectedCourse, courses, refreshCourses } = useCourse();
+
+  useEffect(() => {
+    if (refreshCourses) {
+      refreshCourses();
+    }
+  }, [location.pathname]);
 
   useEffect(() => {
     // Clear curriculum immediately so previous course lessons don't linger

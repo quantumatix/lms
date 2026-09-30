@@ -27,6 +27,7 @@ class CourseCreate(BaseModel):
     level: Optional[str] = "Beginner"
     description: Optional[str] = ""
     target_audience: Optional[str] = ""
+    status: Optional[str] = "published"
 
 
 class CourseUpdate(BaseModel):
@@ -40,14 +41,14 @@ class CourseUpdate(BaseModel):
 
 
 # ─────────────────────────────────────────────
-# STUDENT-FACING: Published courses only
+# STUDENT-FACING: Published/Active courses
 # ─────────────────────────────────────────────
 
 @router.get("/courses")
 def get_published_courses():
-    """Return all published courses for student course selector."""
+    """Return all active courses for student course selector (excluding archived)."""
     courses = list(courses_collection.find(
-        {"status": "published"},
+        {"status": {"$ne": "archived"}},
         {"_id": 0}
     ))
     return courses
@@ -94,7 +95,7 @@ def create_course(course: CourseCreate):
         "level": course.level or "Beginner",
         "description": course.description or "",
         "target_audience": course.target_audience or "",
-        "status": "draft",
+        "status": course.status or "published",
         "created_at": datetime.now().isoformat(),
         "updated_at": datetime.now().isoformat(),
     }

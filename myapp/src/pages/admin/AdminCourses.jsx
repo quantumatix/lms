@@ -37,6 +37,7 @@ const EMPTY_FORM = {
   technology: "",
   category: "Programming",
   level: "Beginner",
+  status: "published",
   description: "",
   target_audience: "",
 };
@@ -79,6 +80,7 @@ function AdminCourses() {
       technology: course.technology || "",
       category: course.category || "Programming",
       level: course.level || "Beginner",
+      status: course.status || "published",
       description: course.description || "",
       target_audience: course.target_audience || "",
     });
@@ -106,6 +108,7 @@ function AdminCourses() {
       addToast(editCourse ? "Course updated" : "Course created", "success");
       setShowModal(false);
       fetchCourses();
+      window.dispatchEvent(new Event("courses-updated"));
     } catch (err) {
       addToast("Error saving course: " + err.message, "error");
     } finally {
@@ -123,6 +126,7 @@ function AdminCourses() {
       if (!res.ok) throw new Error(await res.text());
       addToast(`Course ${newStatus}`, "success");
       fetchCourses();
+      window.dispatchEvent(new Event("courses-updated"));
     } catch (err) {
       addToast("Error: " + err.message, "error");
     }
@@ -135,6 +139,7 @@ function AdminCourses() {
       if (!res.ok) throw new Error(await res.text());
       addToast("Course deleted", "success");
       fetchCourses();
+      window.dispatchEvent(new Event("courses-updated"));
     } catch (err) {
       addToast("Error: " + err.message, "error");
     }
@@ -309,6 +314,18 @@ function AdminCourses() {
                       value={form.category}
                       onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
                     />
+                  </div>
+                  <div className="col-md-6">
+                    <label style={labelStyle}>Status</label>
+                    <select
+                      style={inputStyle}
+                      value={form.status}
+                      onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
+                    >
+                      <option value="published">Published (Visible in Student Panel)</option>
+                      <option value="draft">Draft</option>
+                      <option value="archived">Archived</option>
+                    </select>
                   </div>
                   <div className="col-md-6">
                     <label style={labelStyle}>Target Audience</label>

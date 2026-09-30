@@ -25,9 +25,9 @@ import {
 } from "lucide-react";
 
 function LessonView() {
-  const { lessonId } = useParams();
+  const { lessonId, courseId: routeCourseId } = useParams();
   const navigate = useNavigate();
-  const { selectedCourse } = useCourse();
+  const { selectedCourse, setSelectedCourse, courses } = useCourse();
   const [lesson, setLesson] = useState(null);
   const [allLessons, setAllLessons] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -49,54 +49,149 @@ function LessonView() {
 
   const currentChallenge = lesson?.coding_challenges?.[currentChallengeIndex] || {};
 
+  // Sync course from URL if routeCourseId is provided and different
   useEffect(() => {
+    if (routeCourseId && selectedCourse?.id !== routeCourseId && courses?.length > 0) {
+      const matched = courses.find(c => c.id === routeCourseId);
+      if (matched) {
+        setSelectedCourse(matched);
+      }
+    }
+  }, [routeCourseId, selectedCourse, courses, setSelectedCourse]);
+
+  const activeCourseId = selectedCourse?.id || routeCourseId || "python-core";
+
+  useEffect(() => {
+    let isCancelled = false;
     setLoading(true);
+    setLesson(null);
     setActiveTab("learn");
     setCurrentChallengeIndex(0);
     setCodingResults(null);
     setCode("# Write your solution here\n");
 
-    // Fetch current lesson
-    fetch(`http://127.0.0.1:8000/lessons/${lessonId}?username=${username}`)
+    const courseParam = `&course_id=${encodeURIComponent(activeCourseId)}`;
+
+    // 1. Fetch curriculum specifically for this active course
+    fetch(`http://127.0.0.1:8000/lessons?username=${username}${courseParam}`)
       .then(res => res.json())
-      .then(data => {
-        setLesson(data);
-        setLoading(false);
-        setSelectedAnswers({});
-        setShowResults(false);
-        setExerciseAnswers({});
-        setCheckedExercises({});
-        setExerciseHints({});
-        setExerciseExplanations({});
-        if (data.coding_challenges && data.coding_challenges.length > 0) {
-          setCode(data.coding_challenges[0].initial_code || data.coding_challenges[0].starter_code || "# Write your solution here\n");
+      .then(categories => {
+        if (isCancelled) return;
+        const validCategories = Array.isArray(categories) ? categories : [];
+        setAllLessons(validCategories);
+
+        const flat = validCategories.flatMap(c => c.lessons || []);
+
+        if (flat.length === 0) {
+          // No lessons exist for this course yet
+          setLesson(null);
+          setLoading(false);
+          return;
+        }
+
+        const lessonMatchesCourse = flat.some(l => l.id === lessonId);
+
+        // If the URL lesson does not belong to this active course, redirect to the course's first lesson!
+        if (!lessonMatchesCourse) {
+          const firstLessonId = flat[0].id;
+          const targetUrl = routeCourseId ? `/courses/${activeCourseId}/lessons/${firstLessonId}` : `/lessons/${firstLessonId}`;
+          navigate(targetUrl, { replace: true });
+          return;
+        }
+
+        // Fetch the specific lesson with strict course_id scoping
+        fetch(`http://127.0.0.1:8000/lessons/${lessonId}?username=${username}${courseParam}`)
+          .then(async res => {
+            if (!res.ok) {
+              // If backend rejects because of course mismatch, redirect to first lesson
+              const firstLessonId = flat[0].id;
+              const targetUrl = routeCourseId ? `/courses/${activeCourseId}/lessons/${firstLessonId}` : `/lessons/${firstLessonId}`;
+              navigate(targetUrl, { replace: true });
+              return null;
+            }
+            return res.json();
+          })
+          .then(data => {
+            if (isCancelled || !data) return;
+            setLesson(data);
+            setLoading(false);
+            setSelectedAnswers({});
+            setShowResults(false);
+            setExerciseAnswers({});
+            setCheckedExercises({});
+            setExerciseHints({});
+            setExerciseExplanations({});
+            if (data.coding_challenges && data.coding_challenges.length > 0) {
+              setCode(data.coding_challenges[0].initial_code || data.coding_challenges[0].starter_code || "# Write your solution here\n");
+            }
+          })
+          .catch(err => {
+            if (!isCancelled) {
+              console.error("Error loading lesson:", err);
+              setLoading(false);
+            }
+          });
+      })
+      .catch(err => {
+        if (!isCancelled) {
+          console.error("Error loading curriculum:", err);
+          setLoading(false);
         }
       });
 
-    // Fetch all lessons for the sidebar filtered by active course
-    const courseParam = selectedCourse?.id ? `&course_id=${selectedCourse.id}` : "";
-    fetch(`http://127.0.0.1:8000/lessons?username=${username}${courseParam}`)
-      .then(res => res.json())
-      .then(data => setAllLessons(Array.isArray(data) ? data : []));
-      
-    // Fetch exercises from dedicated endpoint
+    // Fetch exercises for this lesson
     fetch(`http://127.0.0.1:8000/lessons/${lessonId}/exercises`)
       .then(res => res.json())
-      .then(data => setExercises(data))
+      .then(data => {
+        if (!isCancelled) setExercises(Array.isArray(data) ? data : []);
+      })
       .catch(err => console.log("Exercises fetch failed:", err));
-      
-  }, [lessonId, username]);
 
-  if (loading || !lesson) return (
-    <div className="d-flex justify-content-center align-items-center" style={{ height: "100vh" }}>
-      <div className="spinner-border text-primary"></div>
-    </div>
-  );
+    return () => {
+      isCancelled = true;
+    };
+  }, [lessonId, activeCourseId, username, navigate, routeCourseId]);
 
-  const flatLessons = allLessons.flatMap(cat => cat.lessons);
+  if (loading) {
+    return (
+      <div className="d-flex" style={{ minHeight: "100vh", backgroundColor: "#f8fafc" }}>
+        <Sidebar />
+        <div className="flex-grow-1 d-flex justify-content-center align-items-center" style={{ marginLeft: "260px" }}>
+          <div className="spinner-border text-primary"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!lesson) {
+    return (
+      <div className="d-flex" style={{ minHeight: "100vh", backgroundColor: "#f8fafc" }}>
+        <Sidebar />
+        <div className="flex-grow-1 d-flex flex-column justify-content-center align-items-center text-center p-5" style={{ marginLeft: "260px" }}>
+          <div className="p-5 bg-white rounded-4 shadow-sm border" style={{ maxWidth: "500px" }}>
+            <BookOpen size={48} className="text-primary mb-3" style={{ color: "#4f46e5" }} />
+            <h4 className="fw-bold mb-2">No Lessons Found</h4>
+            <p className="text-muted mb-4">
+              There are no published lessons available for {selectedCourse?.name || "this course"} yet.
+            </p>
+            <div className="d-flex justify-content-center gap-3">
+              <Link to="/lessons" className="btn btn-primary rounded-pill px-4" style={{ backgroundColor: "#4f46e5" }}>
+                Back to Lessons
+              </Link>
+              <Link to="/dashboard" className="btn btn-outline-secondary rounded-pill px-4">
+                Dashboard
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const flatLessons = allLessons.flatMap(cat => cat.lessons || []);
   const currentIndex = flatLessons.findIndex(l => l.id === lessonId);
   const prevLesson = currentIndex > 0 ? flatLessons[currentIndex - 1] : null;
-  const nextLesson = currentIndex < flatLessons.length - 1 ? flatLessons[currentIndex + 1] : null;
+  const nextLesson = currentIndex >= 0 && currentIndex < flatLessons.length - 1 ? flatLessons[currentIndex + 1] : null;
 
   const handleAnswerSelect = (qIdx, option) => {
     if (showResults) return;
@@ -295,7 +390,7 @@ function LessonView() {
                      fetch("http://127.0.0.1:8000/lessons/complete", {
                        method: "POST",
                        headers: { "Content-Type": "application/json" },
-                       body: JSON.stringify({ username, lesson_id: lesson.id })
+                       body: JSON.stringify({ username, lesson_id: lesson.id, course_id: activeCourseId || lesson.course_id })
                      }).then(() => {
                        setLesson({...lesson, completed: true});
                      });

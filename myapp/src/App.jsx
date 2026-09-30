@@ -152,6 +152,15 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        <Route
+          path="/courses/:courseId/lessons/:lessonId"
+          element={
+            <ProtectedRoute>
+              <LessonView />
+            </ProtectedRoute>
+          }
+        />
       
         <Route
           path="/interview-prep"

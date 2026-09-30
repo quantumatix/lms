@@ -22,23 +22,45 @@ export function CourseProvider({ children }) {
 
   const [courses, setCourses] = useState([DEFAULT_COURSE]);
 
-  // Fetch all published courses on mount
-  useEffect(() => {
+  const fetchCourseList = () => {
     fetch("http://127.0.0.1:8000/courses")
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data) && data.length > 0) {
           setCourses(data);
-          // If current selected course no longer exists in the list, reset
-          const stillExists = data.find((c) => c.id === selectedCourse.id);
-          if (!stillExists) {
-            setSelectedCourseState(data[0]);
-          }
+          setSelectedCourseState((current) => {
+            const stillExists = data.find((c) => c.id === current.id);
+            if (!stillExists) {
+              const fallback = data[0];
+              try {
+                localStorage.setItem("selectedCourse", JSON.stringify(fallback));
+              } catch {}
+              return fallback;
+            }
+            return current;
+          });
         }
       })
       .catch(() => {
         // Backend not reachable — keep defaults
       });
+  };
+
+  // Fetch all published courses on mount and listen to updates
+  useEffect(() => {
+    fetchCourseList();
+
+    const handleCoursesUpdated = () => {
+      fetchCourseList();
+    };
+
+    window.addEventListener("courses-updated", handleCoursesUpdated);
+    window.addEventListener("focus", handleCoursesUpdated);
+
+    return () => {
+      window.removeEventListener("courses-updated", handleCoursesUpdated);
+      window.removeEventListener("focus", handleCoursesUpdated);
+    };
   }, []);
 
   const setSelectedCourse = (course) => {
@@ -51,7 +73,7 @@ export function CourseProvider({ children }) {
   };
 
   return (
-    <CourseContext.Provider value={{ selectedCourse, setSelectedCourse, courses }}>
+    <CourseContext.Provider value={{ selectedCourse, setSelectedCourse, courses, refreshCourses: fetchCourseList }}>
       {children}
     </CourseContext.Provider>
   );

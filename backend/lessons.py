@@ -151,23 +151,40 @@ def get_lessons(username: str = None, course_id: str = None):
 
 
 @router.get("/lessons/{lesson_id}")
-def get_lesson_detail(lesson_id: str, username: str):
-    lesson = lessons_collection.find_one({"id": lesson_id}, {"_id": 0})
+def get_lesson_detail(lesson_id: str, username: str = None, course_id: str = None):
+    query = {"id": lesson_id}
+    if course_id:
+        if course_id == "python-core":
+            query = {"id": lesson_id, "$or": [{"course_id": "python-core"}, {"course_id": {"$exists": False}}]}
+        else:
+            query = {"id": lesson_id, "course_id": course_id}
+
+    lesson = lessons_collection.find_one(query, {"_id": 0})
     if not lesson:
-        raise HTTPException(status_code=404, detail="Lesson not found")
+        raise HTTPException(status_code=404, detail="Lesson not found for this course")
     
-    user_p = user_progress_collection.find_one({"username": username, "lesson_id": lesson_id}, {"_id": 0})
+    user_p_query = {"username": username, "lesson_id": lesson_id}
+    if course_id:
+        user_p_query["course_id"] = course_id
+    user_p = user_progress_collection.find_one(user_p_query, {"_id": 0})
     lesson["completed"] = user_p.get("status") == "completed" if user_p else False
     
     mcq_quiz = lesson.get("mcq_quiz")
     if not mcq_quiz:
-        mcq_quiz = list(db["mcqs"].find({"lesson_id": lesson_id}, {"_id": 0}))
+        mcq_query = {"lesson_id": lesson_id}
+        if course_id:
+            mcq_query["course_id"] = course_id
+        mcq_quiz = list(db["mcqs"].find(mcq_query, {"_id": 0}))
         
     if not mcq_quiz:
-        from services.ai_service import generate_python_mcqs
+        from services.ai_service import generate_mcqs
         try:
             diff = lesson.get("difficulty", "Beginner").capitalize()
-            generated_mcqs = generate_python_mcqs(topic=lesson["title"], count=5, difficulty=diff)
+            effective_course_id = course_id or lesson.get("course_id") or "python-core"
+            c_doc = db["courses"].find_one({"id": effective_course_id})
+            tech = (c_doc.get("technology") if c_doc else None) or (c_doc.get("title") if c_doc else None) or "Python"
+            
+            generated_mcqs = generate_mcqs(technology=tech, topic=lesson["title"], count=5, difficulty=diff)
             if generated_mcqs:
                 if not isinstance(generated_mcqs, list):
                     generated_mcqs = [generated_mcqs]
@@ -200,6 +217,7 @@ def get_lesson_detail(lesson_id: str, username: str):
                         "answer": str(ans),
                         "explanation": str(expl),
                         "lesson_id": lesson_id,
+                        "course_id": effective_course_id,
                         "topic": lesson["title"],
                         "difficulty": diff,
                         "created_at": datetime.now().isoformat()
@@ -211,7 +229,7 @@ def get_lesson_detail(lesson_id: str, username: str):
                     {"$set": {"mcq_quiz": formatted_mcqs}}
                 )
                 
-                # Also save to the mcqs collection (with lesson_id)
+                # Also save to the mcqs collection (with lesson_id and course_id)
                 db["mcqs"].insert_many(db_insert_list)
                 
                 mcq_quiz = formatted_mcqs

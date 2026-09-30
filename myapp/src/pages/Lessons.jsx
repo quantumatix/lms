@@ -54,6 +54,16 @@ function Lessons() {
 
           {loading ? (
             <div className="text-center py-5"><div className="spinner-border text-primary"></div></div>
+          ) : categories.length === 0 ? (
+            <div className="bg-white rounded-4 shadow-sm border p-5 text-center my-4">
+              <div className="bg-primary-light text-primary rounded-circle d-inline-flex p-3 mb-3" style={{ backgroundColor: '#eff6ff' }}>
+                <BookOpen size={36} style={{ color: '#4f46e5' }} />
+              </div>
+              <h4 className="fw-bold text-dark mb-2">No Lessons Found</h4>
+              <p className="text-muted mb-0" style={{ maxWidth: '480px', margin: '0 auto' }}>
+                There are currently no lessons published for <strong>{selectedCourse?.name || 'this course'}</strong>. Please select another course or check back soon!
+              </p>
+            </div>
           ) : (
             <div className="d-flex flex-column gap-5">
               {categories.map((cat) => (
