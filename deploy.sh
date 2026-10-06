@@ -7,7 +7,8 @@
 #   nginx    : https://<domain>/        -> static frontend (SPA fallback)
 #              https://<domain>/api/... -> backend (/api prefix stripped)
 #
-# Run it from the repo checkout on the server, as the same user that owns your other pm2 apps:
+# Run it from the repo checkout on the server (outside /var/www, e.g. /opt/lms), as the same
+# user that owns your other pm2 apps:
 #
 #   ./deploy.sh                  pull latest code, build, restart, reload nginx
 #   ./deploy.sh --no-pull        deploy the code as it is on disk
@@ -65,6 +66,13 @@ apt_install() {
 preflight() {
   step "Checking server prerequisites"
   [[ -r /etc/os-release ]] && info "OS: $(. /etc/os-release && echo "${PRETTY_NAME:-unknown}")"
+
+  # The checkout holds backend/.env (API keys) and .git; nginx's default site serves /var/www/html,
+  # so a checkout under /var/www can end up downloadable. Only the built frontend belongs there.
+  if [[ $APP_DIR == /var/www/* ]]; then
+    die "this checkout is inside /var/www ($APP_DIR), where nginx can serve backend/.env and .git publicly.
+        Move it out of the web root, e.g.:  mv $APP_DIR /opt/lms && cd /opt/lms && ./deploy.sh"
+  fi
 
   if [[ -n $SUDO ]]; then
     command -v sudo >/dev/null || die "run as root or install sudo"
@@ -445,7 +453,7 @@ main() {
   for arg in "$@"; do
     case $arg in
       --no-pull) NO_PULL=1 ;;
-      -h|--help) sed -n '2,18p' "$0"; exit 0 ;;
+      -h|--help) sed -n '2,19p' "$0"; exit 0 ;;
       *) die "unknown option: $arg (see --help)" ;;
     esac
   done
