@@ -4,10 +4,11 @@ Run once: python migrate_add_course_id.py
 
 Safe and idempotent — running twice does nothing extra.
 """
+import os
 from pymongo import MongoClient
 from datetime import datetime
 
-client = MongoClient("mongodb://localhost:27017")
+client = MongoClient(os.getenv("MONGO_URI", "mongodb://localhost:27017"))
 db = client["lms_database"]
 
 PYTHON_COURSE_ID = "python-core"

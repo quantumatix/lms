@@ -1,7 +1,8 @@
+import os
 from pymongo import MongoClient
 import datetime
 
-client = MongoClient("mongodb://localhost:27017")
+client = MongoClient(os.getenv("MONGO_URI", "mongodb://localhost:27017"))
 db = client["lms_database"]
 
 # --- CODING CHALLENGES SEEDING ---
