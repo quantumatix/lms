@@ -38,6 +38,8 @@ FRONTEND_DIR="$APP_DIR/myapp"
 VENV_DIR="$BACKEND_DIR/venv"
 ENV_FILE="$BACKEND_DIR/.env"
 PORT_FILE="$APP_DIR/.deploy_port"
+BUILD_NODE_DIR="$APP_DIR/.deploy/node"                # private Node, only if the system one is too old
+BUILD_NODE_MAJOR=22
 LE_DIR="/etc/letsencrypt/live/$DOMAIN"
 
 # ---------------------------------------------------------------- helpers
@@ -80,16 +82,12 @@ preflight() {
   fi
 
   local cmd
-  for cmd in node npm pm2 nginx git curl ss; do
+  for cmd in node pm2 nginx git curl ss tar; do
     command -v "$cmd" >/dev/null || die "'$cmd' not found in PATH (if node/pm2 come from nvm, run this as that user, not via sudo)"
   done
   command -v rsync >/dev/null || apt_install rsync
 
-  local node_v; node_v="$(node -v | sed 's/^v//')"
-  if ! { [[ ${node_v%%.*} -eq 20 ]] && version_ge "$node_v" 20.19.0; } && ! version_ge "$node_v" 22.12.0; then
-    die "Node $node_v is too old for the Vite build (need 20.19+ or 22.12+)"
-  fi
-  info "node $node_v, pm2 $(pm2 -v 2>/dev/null | tail -1), $(nginx -v 2>&1 | sed 's|.*/||;s|^|nginx |')"
+  info "node $(node -v), pm2 $(pm2 -v 2>/dev/null | tail -1), $(nginx -v 2>&1 | sed 's|.*/||;s|^|nginx |')"
 
   command -v "$PYTHON_BIN" >/dev/null || die "$PYTHON_BIN not found (set PYTHON_BIN=python3.x)"
   local py_v; py_v="$("$PYTHON_BIN" -c 'import sys; print("%d.%d" % sys.version_info[:2])')"
@@ -174,9 +172,54 @@ PY
 }
 
 # ---------------------------------------------------------------- 5. frontend build
+# Vite needs Node 20.19+ or 22.12+.
+build_node_ok() {
+  local v; v="$("$1" -v 2>/dev/null | sed 's/^v//')"
+  [[ -n $v ]] || return 1
+  { [[ ${v%%.*} -eq 20 ]] && version_ge "$v" 20.19.0; } || version_ge "$v" 22.12.0
+}
+
+# Node is only needed to build the frontend (the backend is Python). If the server's Node is too
+# old, use a private copy in .deploy/node rather than upgrading the one other apps run on.
+ensure_build_node() {
+  local sys_node; sys_node="$(command -v node)"
+  if build_node_ok "$sys_node" && command -v npm >/dev/null; then
+    BUILD_NODE_BIN="$(dirname "$sys_node")"
+    return
+  fi
+  if [[ -x $BUILD_NODE_DIR/bin/node ]] && build_node_ok "$BUILD_NODE_DIR/bin/node"; then
+    BUILD_NODE_BIN="$BUILD_NODE_DIR/bin"
+    info "system node $(node -v) is too old for Vite; building with $("$BUILD_NODE_BIN/node" -v) from .deploy/node"
+    return
+  fi
+
+  info "system node $(node -v) is too old for Vite; downloading Node $BUILD_NODE_MAJOR for the build only"
+  local arch base sums file tmp
+  case "$(uname -m)" in
+    x86_64) arch=x64 ;;
+    aarch64|arm64) arch=arm64 ;;
+    *) die "no Node build for CPU $(uname -m); upgrade node to 20.19+ or 22.12+ manually" ;;
+  esac
+  base="https://nodejs.org/dist/latest-v${BUILD_NODE_MAJOR}.x"
+  sums="$(curl -fsSL "$base/SHASUMS256.txt")"
+  file="$(awk -v suffix="-linux-$arch.tar.gz" 'substr($2, length($2) - length(suffix) + 1) == suffix {print $2}' <<<"$sums" | head -1)"
+  [[ -n $file ]] || die "could not find a linux-$arch build in $base"
+  tmp="$(mktemp -d)"
+  curl -fsSL "$base/$file" -o "$tmp/$file"
+  (cd "$tmp" && grep "  $file\$" <<<"$sums" | sha256sum -c --quiet -) || die "checksum mismatch for $file"
+  rm -rf "$BUILD_NODE_DIR"
+  mkdir -p "$BUILD_NODE_DIR"
+  tar -xzf "$tmp/$file" -C "$BUILD_NODE_DIR" --strip-components=1
+  rm -rf "$tmp"
+  BUILD_NODE_BIN="$BUILD_NODE_DIR/bin"
+  info "using $("$BUILD_NODE_BIN/node" -v) from .deploy/node"
+}
+
 build_frontend() {
   step "Building frontend"
+  ensure_build_node
   (
+    export PATH="$BUILD_NODE_BIN:$PATH"
     cd "$FRONTEND_DIR"
     npm ci --include=dev --no-audit --no-fund --loglevel=error
     npm run build
@@ -458,8 +501,8 @@ main() {
     esac
   done
 
-  preflight
   update_code "$@"
+  preflight
   check_env
   setup_backend
   check_mongo

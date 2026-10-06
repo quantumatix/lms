@@ -47,3 +47,4 @@ tmp/
 venv/
 **/venv/
 .deploy_port
+.deploy/
