@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { API_BASE } from "../config";
 
 function MistakeAnalysis() {
 
@@ -6,7 +7,7 @@ function MistakeAnalysis() {
 
   useEffect(() => {
 
-    fetch("http://127.0.0.1:8000/daily-review/ayush")
+    fetch(API_BASE + "/daily-review/ayush")
       .then((res) => res.json())
       .then((data) => {
         console.log("DATA:", data);

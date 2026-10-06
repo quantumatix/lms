@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import AdminLayout from "../../components/AdminLayout";
 import { Toast, useToast } from "../../components/Toast";
 import { Plus, Edit, Trash2, Globe, CheckCircle, Archive } from "lucide-react";
+import { API_BASE } from "../../config";
 
 const sectionStyle = {
   background: "#fff",
@@ -53,7 +54,7 @@ function AdminCourses() {
 
   const fetchCourses = () => {
     setLoading(true);
-    fetch("http://127.0.0.1:8000/admin/courses")
+    fetch(API_BASE + "/admin/courses")
       .then(r => r.json())
       .then(data => {
         setCourses(Array.isArray(data) ? data : []);
@@ -96,8 +97,8 @@ function AdminCourses() {
     setSaving(true);
     try {
       const url = editCourse
-        ? `http://127.0.0.1:8000/admin/courses/${editCourse.id}`
-        : "http://127.0.0.1:8000/admin/courses";
+        ? `${API_BASE}/admin/courses/${editCourse.id}`
+        : API_BASE + "/admin/courses";
       const method = editCourse ? "PUT" : "POST";
       const res = await fetch(url, {
         method,
@@ -118,7 +119,7 @@ function AdminCourses() {
 
   const handleStatusChange = async (course, newStatus) => {
     try {
-      const res = await fetch(`http://127.0.0.1:8000/admin/courses/${course.id}`, {
+      const res = await fetch(`${API_BASE}/admin/courses/${course.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
@@ -135,7 +136,7 @@ function AdminCourses() {
   const handleDelete = async (course) => {
     if (!window.confirm(`Delete "${course.name}"? This cannot be undone.`)) return;
     try {
-      const res = await fetch(`http://127.0.0.1:8000/admin/courses/${course.id}`, { method: "DELETE" });
+      const res = await fetch(`${API_BASE}/admin/courses/${course.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error(await res.text());
       addToast("Course deleted", "success");
       fetchCourses();

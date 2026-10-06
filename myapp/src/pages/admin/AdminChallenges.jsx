@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import AdminLayout from "../../components/AdminLayout";
 import { Toast, useToast } from "../../components/Toast";
 import { Plus, Edit, Trash2, Code2, Save, X, Lightbulb, BookOpen } from "lucide-react";
+import { API_BASE } from "../../config";
 
 const inputStyle = {
   width: "100%", padding: "10px 14px", border: "1.5px solid #e5e7eb",
@@ -27,7 +28,7 @@ function AdminChallenges() {
 
   // 1. Fetch courses on mount
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/admin/courses")
+    fetch(API_BASE + "/admin/courses")
       .then(r => r.json())
       .then(d => {
         if (Array.isArray(d) && d.length > 0) {
@@ -46,7 +47,7 @@ function AdminChallenges() {
     setChallenges([]);
     setLessons([]);
 
-    fetch(`http://127.0.0.1:8000/admin/lessons?course_id=${selectedCourseId}`)
+    fetch(`${API_BASE}/admin/lessons?course_id=${selectedCourseId}`)
       .then(r => r.json())
       .then(d => {
         const courseLessons = Array.isArray(d) ? d : [];
@@ -70,7 +71,7 @@ function AdminChallenges() {
   const fetchChallenges = () => {
     if (!selectedLessonId) return;
     setLoading(true);
-    fetch(`http://127.0.0.1:8000/lessons/${selectedLessonId}?username=admin@lms.com`)
+    fetch(`${API_BASE}/lessons/${selectedLessonId}?username=admin@lms.com`)
       .then(r => r.json())
       .then(d => { 
         setChallenges(d.coding_challenges || []); 
@@ -97,7 +98,7 @@ function AdminChallenges() {
     if (editIndex !== null) updated[editIndex] = formData;
     else updated.push(formData);
 
-    fetch(`http://127.0.0.1:8000/admin/lessons/${selectedLessonId}`, {
+    fetch(`${API_BASE}/admin/lessons/${selectedLessonId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ coding_challenges: updated })
@@ -112,7 +113,7 @@ function AdminChallenges() {
     if (!selectedLessonId) return;
     if (window.confirm("Delete this challenge?")) {
       const updated = challenges.filter((_, i) => i !== index);
-      fetch(`http://127.0.0.1:8000/admin/lessons/${selectedLessonId}`, {
+      fetch(`${API_BASE}/admin/lessons/${selectedLessonId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ coding_challenges: updated })

@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import AdminLayout from "../../components/AdminLayout";
 import { Sparkles, BookOpen, Code2, HelpCircle, Loader2, ClipboardList, Layers } from "lucide-react";
+import { API_BASE } from "../../config";
 
-const API_BASE = "http://localhost:8000";
 
 function AdminAIGenerator() {
   const [activeTab, setActiveTab] = useState("lesson");

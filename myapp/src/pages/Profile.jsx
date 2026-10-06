@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useCourse } from "../context/CourseContext";
+import { API_BASE } from "../config";
 
 function Profile() {
   const [profile, setProfile] = useState({});
@@ -8,7 +9,7 @@ function Profile() {
   useEffect(() => {
     const username = localStorage.getItem("username");
 
-    fetch(`http://127.0.0.1:8000/progress/${username}`)
+    fetch(`${API_BASE}/progress/${username}`)
       .then((res) => res.json())
       .then((data) => {
         setProfile(data);

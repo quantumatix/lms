@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import os
 from pymongo import MongoClient
 
 
@@ -74,7 +75,7 @@ app.add_middleware(
 )
 
 # MongoDB Connection
-client = MongoClient("mongodb://localhost:27017")
+client = MongoClient(os.getenv("MONGO_URI", "mongodb://localhost:27017"))
 
 db = client["lms_database"]
 

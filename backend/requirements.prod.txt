@@ -1,0 +1,12 @@
+# Runtime dependencies for the API server (used by deploy.sh).
+# requirements.txt is a full dev-machine freeze (tensorflow, torch, Windows-only
+# wheels) and does not install on Linux.
+fastapi==0.136.3
+uvicorn==0.48.0
+pydantic==2.13.4
+pymongo==4.17.0
+python-multipart==0.0.29
+python-dotenv
+requests==2.32.5
+openai
+google-generativeai

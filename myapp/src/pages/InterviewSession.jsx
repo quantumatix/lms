@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams, useParams, useLocation } from "react-rout
 import Sidebar from "../components/Sidebar";
 import { useCourse } from "../context/CourseContext";
 import { Brain, Clock, ArrowLeft, ArrowRight, Save, CheckCircle2, AlertCircle } from "lucide-react";
+import { API_BASE } from "../config";
 
 function InterviewSession() {
   const navigate = useNavigate();
@@ -50,7 +51,7 @@ function InterviewSession() {
       // If no explicit ID in URL/state/local storage, try to fetch the latest session for this course from backend
       if (!targetId) {
         try {
-          const latestRes = await fetch(`http://127.0.0.1:8000/interview/session/latest/${username}?course_id=${courseId}`);
+          const latestRes = await fetch(`${API_BASE}/interview/session/latest/${username}?course_id=${courseId}`);
           if (latestRes.ok) {
             const latestData = await latestRes.json();
             if (latestData?.session?.interview_id) {
@@ -69,7 +70,7 @@ function InterviewSession() {
       }
 
       try {
-        const res = await fetch(`http://127.0.0.1:8000/interview/session/${targetId}`);
+        const res = await fetch(`${API_BASE}/interview/session/${targetId}`);
         if (!res.ok) {
           throw new Error("Unable to retrieve interview session details.");
         }
@@ -90,7 +91,7 @@ function InterviewSession() {
         }
         
         // Fetch saved answers from interview_answers collection for this session
-        const answersRes = await fetch(`http://127.0.0.1:8000/interview/session/${targetId}/answers?username=${username}`);
+        const answersRes = await fetch(`${API_BASE}/interview/session/${targetId}/answers?username=${username}`);
         if (answersRes.ok) {
           const savedAnswers = await answersRes.json();
           const answersDict = {};
@@ -149,7 +150,7 @@ function InterviewSession() {
     const studentAnswer = answers[currentQuestionNum] || "";
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/interview/answer", {
+      const res = await fetch(API_BASE + "/interview/answer", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -202,7 +203,7 @@ function InterviewSession() {
     
     setSubmitStatus("Gemini AI is evaluating your responses... This may take up to 20-30 seconds.");
     try {
-      const res = await fetch("http://127.0.0.1:8000/interview/evaluate", {
+      const res = await fetch(API_BASE + "/interview/evaluate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ interview_id: interviewId, username: username })

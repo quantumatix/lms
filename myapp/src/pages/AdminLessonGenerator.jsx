@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { API_BASE } from "../config";
 
 function AdminLessonGenerator() {
   const [topic, setTopic] = useState("");
@@ -20,7 +21,7 @@ function AdminLessonGenerator() {
     setLoading(true);
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/admin/generate-lesson", {
+      const response = await fetch(API_BASE + "/admin/generate-lesson", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"

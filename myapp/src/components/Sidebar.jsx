@@ -20,6 +20,7 @@ import {
   FileText
 } from "lucide-react";
 import { useCourse } from "../context/CourseContext";
+import { API_BASE } from "../config";
 
 function Sidebar() {
   const username = localStorage.getItem("username") || "Learner";
@@ -38,7 +39,7 @@ function Sidebar() {
     // Clear curriculum immediately so previous course lessons don't linger
     setCurriculum([]);
     const courseParam = selectedCourse?.id ? `&course_id=${selectedCourse.id}` : "";
-    fetch(`http://127.0.0.1:8000/lessons?username=${username}${courseParam}`)
+    fetch(`${API_BASE}/lessons?username=${username}${courseParam}`)
       .then(res => res.json())
       .then(data => {
         const allLessons = Array.isArray(data) ? data.flatMap(cat => cat.lessons || []) : [];

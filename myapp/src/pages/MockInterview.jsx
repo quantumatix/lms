@@ -10,6 +10,7 @@ import {
   Award,
   BookOpen
 } from "lucide-react";
+import { API_BASE } from "../config";
 
 function MockInterview() {
   const navigate = useNavigate();
@@ -24,7 +25,7 @@ function MockInterview() {
   const startInterview = () => {
     setLoading(true);
     const courseId = selectedCourse?.id || "python-core";
-    fetch(`http://127.0.0.1:8000/interview/mock/start?course_id=${courseId}`)
+    fetch(`${API_BASE}/interview/mock/start?course_id=${courseId}`)
       .then(res => res.json())
       .then(data => {
         setQuestions(Array.isArray(data) ? data : []);
@@ -54,7 +55,7 @@ function MockInterview() {
       score: Math.floor(Math.random() * 4) + 6 // Simulated score for the mock session
     }));
 
-    fetch("http://127.0.0.1:8000/interview/mock/submit", {
+    fetch(API_BASE + "/interview/mock/submit", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

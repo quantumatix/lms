@@ -11,6 +11,7 @@ import {
   Globe
 } from "lucide-react";
 import { useCourse } from "../context/CourseContext";
+import { API_BASE } from "../config";
 
 function InterviewPrep() {
   const [questions, setQuestions] = useState([]);
@@ -23,14 +24,14 @@ function InterviewPrep() {
 
   useEffect(() => {
     const courseParam = selectedCourse?.id ? `&course_id=${selectedCourse.id}` : "";
-    fetch(`http://127.0.0.1:8000/interview/questions?category=${category}${courseParam}`)
+    fetch(`${API_BASE}/interview/questions?category=${category}${courseParam}`)
       .then(res => res.json())
       .then(data => setQuestions(Array.isArray(data) ? data : []));
   }, [category, selectedCourse]);
 
   const handleEvaluate = () => {
     setLoading(true);
-    fetch("http://127.0.0.1:8000/interview/evaluate", {
+    fetch(API_BASE + "/interview/evaluate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

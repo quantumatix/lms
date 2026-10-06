@@ -9,6 +9,7 @@ import {
   HelpCircle,
   BarChart
 } from "lucide-react";
+import { API_BASE } from "../config";
 
 function Assessment() {
   const { selectedCourse } = useCourse();
@@ -42,7 +43,7 @@ function Assessment() {
 
     try {
       const username = localStorage.getItem("username") || "Learner";
-      await fetch("http://127.0.0.1:8000/save-level", {
+      await fetch(API_BASE + "/save-level", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

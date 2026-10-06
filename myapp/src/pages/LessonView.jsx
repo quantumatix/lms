@@ -23,6 +23,7 @@ import {
   FileCode,
   Layout
 } from "lucide-react";
+import { API_BASE } from "../config";
 
 function LessonView() {
   const { lessonId, courseId: routeCourseId } = useParams();
@@ -73,7 +74,7 @@ function LessonView() {
     const courseParam = `&course_id=${encodeURIComponent(activeCourseId)}`;
 
     // 1. Fetch curriculum specifically for this active course
-    fetch(`http://127.0.0.1:8000/lessons?username=${username}${courseParam}`)
+    fetch(`${API_BASE}/lessons?username=${username}${courseParam}`)
       .then(res => res.json())
       .then(categories => {
         if (isCancelled) return;
@@ -100,7 +101,7 @@ function LessonView() {
         }
 
         // Fetch the specific lesson with strict course_id scoping
-        fetch(`http://127.0.0.1:8000/lessons/${lessonId}?username=${username}${courseParam}`)
+        fetch(`${API_BASE}/lessons/${lessonId}?username=${username}${courseParam}`)
           .then(async res => {
             if (!res.ok) {
               // If backend rejects because of course mismatch, redirect to first lesson
@@ -140,7 +141,7 @@ function LessonView() {
       });
 
     // Fetch exercises for this lesson
-    fetch(`http://127.0.0.1:8000/lessons/${lessonId}/exercises`)
+    fetch(`${API_BASE}/lessons/${lessonId}/exercises`)
       .then(res => res.json())
       .then(data => {
         if (!isCancelled) setExercises(Array.isArray(data) ? data : []);
@@ -387,7 +388,7 @@ function LessonView() {
               <div className="text-center mt-5 pt-4">
                  <button 
                    onClick={() => {
-                     fetch("http://127.0.0.1:8000/lessons/complete", {
+                     fetch(API_BASE + "/lessons/complete", {
                        method: "POST",
                        headers: { "Content-Type": "application/json" },
                        body: JSON.stringify({ username, lesson_id: lesson.id, course_id: activeCourseId || lesson.course_id })

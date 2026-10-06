@@ -10,6 +10,7 @@ import {
   Sword,
 } from "lucide-react";
 import { useCourse } from "../context/CourseContext";
+import { API_BASE } from "../config";
 
 function Lessons() {
   const [categories, setCategories] = useState([]);
@@ -20,7 +21,7 @@ function Lessons() {
   useEffect(() => {
     setLoading(true);
     const courseParam = selectedCourse?.id ? `&course_id=${selectedCourse.id}` : "";
-    fetch(`http://127.0.0.1:8000/lessons?username=${username}${courseParam}`)
+    fetch(`${API_BASE}/lessons?username=${username}${courseParam}`)
       .then((res) => res.json())
       .then((data) => {
         setCategories(Array.isArray(data) ? data : []);

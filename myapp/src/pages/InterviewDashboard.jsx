@@ -25,6 +25,7 @@ import {
   Brain,
   AlertCircle
 } from "lucide-react";
+import { API_BASE } from "../config";
 
 function InterviewDashboard() {
   const navigate = useNavigate();
@@ -46,7 +47,7 @@ function InterviewDashboard() {
     setData(null);
 
     const courseParam = selectedCourse?.id ? `?course_id=${selectedCourse.id}` : "";
-    fetch(`http://127.0.0.1:8000/interview/skill-analysis/${username}${courseParam}`)
+    fetch(`${API_BASE}/interview/skill-analysis/${username}${courseParam}`)
       .then((res) => {
         if (!res.ok) {
           throw new Error("Student data analysis failed or student not found.");

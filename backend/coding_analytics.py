@@ -1,11 +1,12 @@
 from fastapi import APIRouter
+import os
 from pymongo import MongoClient
 
 print("CODING ANALYTICS LOADED")
 
 router = APIRouter()
 
-client = MongoClient("mongodb://localhost:27017")
+client = MongoClient(os.getenv("MONGO_URI", "mongodb://localhost:27017"))
 
 db = client["lms_database"]
 

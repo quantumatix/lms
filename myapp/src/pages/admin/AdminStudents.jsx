@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import AdminLayout from "../../components/AdminLayout";
 import { Toast, useToast } from "../../components/Toast";
 import { Search, Eye, X, Trophy, BookOpen } from "lucide-react";
+import { API_BASE } from "../../config";
 
 function AdminStudents() {
   const { toasts, addToast, removeToast } = useToast();
@@ -14,7 +15,7 @@ function AdminStudents() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/admin/students")
+    fetch(API_BASE + "/admin/students")
       .then(r => r.json())
       .then(d => { const list = Array.isArray(d) ? d : []; setStudents(list); setFiltered(list); setLoading(false); })
       .catch(() => setLoading(false));
@@ -30,7 +31,7 @@ function AdminStudents() {
   const viewDetails = (student) => {
     setLoadingDetail(true);
     setSelectedStudent(student);
-    fetch(`http://127.0.0.1:8000/admin/submissions/${student.email}`)
+    fetch(`${API_BASE}/admin/submissions/${student.email}`)
       .then(r => r.json())
       .then(d => { setSubmissions(d); setLoadingDetail(false); })
       .catch(() => { setSubmissions({ mcq: [], coding: [] }); setLoadingDetail(false); });

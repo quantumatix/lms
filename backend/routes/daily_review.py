@@ -1,9 +1,10 @@
 from fastapi import APIRouter
+import os
 from pymongo import MongoClient
 
 router = APIRouter()
 
-client = MongoClient("mongodb://localhost:27017")
+client = MongoClient(os.getenv("MONGO_URI", "mongodb://localhost:27017"))
 db = client["lms_database"]
 
 mistakes_collection = db["mcq_mistakes"]

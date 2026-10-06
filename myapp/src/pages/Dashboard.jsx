@@ -31,6 +31,7 @@ import {
   Zap,
   BarChart3
 } from "lucide-react";
+import { API_BASE } from "../config";
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -64,42 +65,42 @@ function Dashboard() {
     const courseId = selectedCourse?.id || "python-core";
     const courseParam = `?course_id=${courseId}`;
 
-    fetch(`http://127.0.0.1:8000/progress/${username}${courseParam}`)
+    fetch(`${API_BASE}/progress/${username}${courseParam}`)
       .then((res) => res.json())
       .then((data) => setProgress(data))
       .catch((err) => console.log(err));
 
-    fetch(`http://127.0.0.1:8000/analytics/${username}${courseParam}`)
+    fetch(`${API_BASE}/analytics/${username}${courseParam}`)
       .then((res) => res.json())
       .then((data) => setAnalytics(data))
       .catch((err) => console.log(err));
 
-    fetch(`http://127.0.0.1:8000/coding-analytics${courseParam}&username=${username}`)
+    fetch(`${API_BASE}/coding-analytics${courseParam}&username=${username}`)
       .then((res) => res.json())
       .then((data) => setCodingAnalytics(data))
       .catch((err) => console.log(err));
 
-    fetch(`http://127.0.0.1:8000/score-history/${username}${courseParam}`)
+    fetch(`${API_BASE}/score-history/${username}${courseParam}`)
       .then((res) => res.json())
       .then((data) => setChartData(data))
       .catch((err) => console.log(err));
 
-    fetch(`http://127.0.0.1:8000/adaptive-recommendations/${username}${courseParam}`)
+    fetch(`${API_BASE}/adaptive-recommendations/${username}${courseParam}`)
       .then((res) => res.json())
       .then((data) => setAdaptiveRecommendations(data))
       .catch((err) => console.log(err));
 
-    fetch(`http://127.0.0.1:8000/daily-review/${username}${courseParam}`)
+    fetch(`${API_BASE}/daily-review/${username}${courseParam}`)
       .then((res) => res.json())
       .then((data) => setMistakes(data))
       .catch((err) => console.log(err));
 
-    fetch(`http://127.0.0.1:8000/weak-topics/${username}${courseParam}`)
+    fetch(`${API_BASE}/weak-topics/${username}${courseParam}`)
       .then((res) => res.json())
       .then((data) => setWeakTopics(data))
       .catch((err) => console.log(err));
 
-    fetch(`http://127.0.0.1:8000/lessons/recommendations/${username}${courseParam}`)
+    fetch(`${API_BASE}/lessons/recommendations/${username}${courseParam}`)
       .then((res) => res.json())
       .then((data) => setRecommendedLessons(data))
       .catch((err) => console.log(err));

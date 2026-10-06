@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import AdminLayout from "../../components/AdminLayout";
 import { Toast, useToast } from "../../components/Toast";
 import { Plus, Edit, Trash2, Search, X, Save, PlusCircle, Trash, Globe, AlertTriangle, BookOpen, Sparkles } from "lucide-react";
+import { API_BASE } from "../../config";
 
 const sectionStyle = {
   background: "#fff",
@@ -58,7 +59,7 @@ function AdminLessons() {
   const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/admin/courses")
+    fetch(API_BASE + "/admin/courses")
       .then(r => r.json())
       .then(d => {
         if (Array.isArray(d) && d.length > 0) {
@@ -77,7 +78,7 @@ function AdminLessons() {
       return;
     }
     setGenerating(true);
-    fetch("http://127.0.0.1:8000/admin/ai/generate-lesson", {
+    fetch(API_BASE + "/admin/ai/generate-lesson", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
@@ -111,7 +112,7 @@ function AdminLessons() {
     setSelectedEnhanceLesson(null);
     setEnhancing(true);
 
-    fetch(`http://127.0.0.1:8000/admin/lessons/${targetId}/enhance`, {
+    fetch(`${API_BASE}/admin/lessons/${targetId}/enhance`, {
       method: "POST"
     })
       .then(r => {
@@ -144,7 +145,7 @@ function AdminLessons() {
   const fetchLessons = (courseId = selectedCourseId) => {
     setLoading(true);
     const param = courseId ? `?course_id=${courseId}` : "";
-    fetch(`http://127.0.0.1:8000/admin/lessons${param}`)
+    fetch(`${API_BASE}/admin/lessons${param}`)
       .then(r => r.json())
       .then(d => { setLessons(Array.isArray(d) ? d : []); setLoading(false); })
       .catch(() => setLoading(false));
@@ -154,7 +155,7 @@ function AdminLessons() {
     setActiveTab("general");
     if (lesson) {
       setEditLesson(lesson);
-      fetch(`http://127.0.0.1:8000/lessons/${lesson.id}?username=admin@lms.com`)
+      fetch(`${API_BASE}/lessons/${lesson.id}?username=admin@lms.com`)
         .then(r => r.json())
         .then(detail => {
           setFormData({
@@ -197,8 +198,8 @@ function AdminLessons() {
     setSaving(true);
     const method = editLesson ? "PUT" : "POST";
     const url = editLesson
-      ? `http://127.0.0.1:8000/admin/lessons/${editLesson.id}`
-      : "http://127.0.0.1:8000/admin/lessons";
+      ? `${API_BASE}/admin/lessons/${editLesson.id}`
+      : API_BASE + "/admin/lessons";
     const payload = {
       ...formData,
       course_id: formData.course_id || selectedCourseId || "python-core"
@@ -214,7 +215,7 @@ function AdminLessons() {
 
   const handleDelete = (id) => {
     if (window.confirm("Delete this lesson and all its exercises?")) {
-      fetch(`http://127.0.0.1:8000/admin/lessons/${id}`, { method: "DELETE" })
+      fetch(`${API_BASE}/admin/lessons/${id}`, { method: "DELETE" })
         .then(() => { fetchLessons(); addToast("Lesson deleted.", "success"); });
     }
   };

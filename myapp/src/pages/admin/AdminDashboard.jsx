@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import AdminLayout from "../../components/AdminLayout";
+import { API_BASE } from "../../config";
 
 // ── Stat Card ──────────────────────────────────────────────────────────────
 function StatCard({ title, value, icon, colorClass, bgClass, loading }) {
@@ -71,7 +72,7 @@ function AdminDashboard() {
   useEffect(() => {
     const t0 = Date.now();
 
-    fetch("http://127.0.0.1:8000/admin/stats")
+    fetch(API_BASE + "/admin/stats")
       .then(r => r.json())
       .then(d => {
         setStats(d);
@@ -83,7 +84,7 @@ function AdminDashboard() {
         setBackendOnline(false);
       });
 
-    fetch("http://127.0.0.1:8000/admin/students")
+    fetch(API_BASE + "/admin/students")
       .then(r => r.json())
       .then(d => {
         const sorted = [...d].sort((a, b) => (b.xp || 0) - (a.xp || 0)).slice(0, 8);

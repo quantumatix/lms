@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import AdminLayout from "../../components/AdminLayout";
 import { Toast, useToast } from "../../components/Toast";
 import { Plus, Edit, Trash2, FileCode, Save, X, Sparkles, BookOpen, Layers } from "lucide-react";
+import { API_BASE } from "../../config";
 
 const inputStyle = {
   width: "100%", padding: "10px 14px", border: "1.5px solid #e5e7eb",
@@ -33,7 +34,7 @@ function AdminExercises() {
 
   // 1. Fetch courses on mount
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/admin/courses")
+    fetch(API_BASE + "/admin/courses")
       .then(r => r.json())
       .then(d => {
         if (Array.isArray(d) && d.length > 0) {
@@ -53,7 +54,7 @@ function AdminExercises() {
     setLessons([]);
 
     // Fetch lessons for this course only
-    fetch(`http://127.0.0.1:8000/admin/lessons?course_id=${selectedCourseId}`)
+    fetch(`${API_BASE}/admin/lessons?course_id=${selectedCourseId}`)
       .then(r => r.json())
       .then(d => {
         setLessons(Array.isArray(d) ? d : []);
@@ -74,7 +75,7 @@ function AdminExercises() {
   const fetchExercises = (courseId = selectedCourseId, lessonId = selectedLessonFilter) => {
     if (!courseId) return;
     setLoading(true);
-    let url = `http://127.0.0.1:8000/admin/exercises?course_id=${courseId}`;
+    let url = `${API_BASE}/admin/exercises?course_id=${courseId}`;
     if (lessonId) {
       url += `&lesson_id=${lessonId}`;
     }
@@ -98,7 +99,7 @@ function AdminExercises() {
     const targetDiff = aiDifficulty || (currentLesson ? currentLesson.difficulty : "Beginner");
 
     setGeneratingAI(true);
-    fetch("http://127.0.0.1:8000/admin/ai/generate-practice-exercises", {
+    fetch(API_BASE + "/admin/ai/generate-practice-exercises", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -144,7 +145,7 @@ function AdminExercises() {
     setSaving(true);
     const isEditing = editExercise !== null;
     const method = isEditing ? "PUT" : "POST";
-    const url = isEditing ? `http://127.0.0.1:8000/admin/exercises/${editExercise.id}` : "http://127.0.0.1:8000/admin/exercises";
+    const url = isEditing ? `${API_BASE}/admin/exercises/${editExercise.id}` : API_BASE + "/admin/exercises";
     const payload = { ...formData, course_id: selectedCourseId };
 
     fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
@@ -160,7 +161,7 @@ function AdminExercises() {
 
   const handleDelete = (exerciseId) => {
     if (window.confirm("Delete this exercise?")) {
-      fetch(`http://127.0.0.1:8000/admin/exercises/${exerciseId}`, { method: "DELETE" })
+      fetch(`${API_BASE}/admin/exercises/${exerciseId}`, { method: "DELETE" })
         .then(() => { fetchExercises(); addToast("Exercise deleted.", "success"); });
     }
   };

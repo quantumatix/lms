@@ -14,6 +14,7 @@ import {
   Monitor
 } from "lucide-react";
 import { useCourse } from "../context/CourseContext";
+import { API_BASE } from "../config";
 
 function CodingPractice() {
   const [challenges, setChallenges] = useState([]);
@@ -35,7 +36,7 @@ function CodingPractice() {
   const fetchChallenges = () => {
     const courseParam = selectedCourse?.id ? `course_id=${selectedCourse.id}` : "course_id=python-core";
     const diffParam = difficulty !== "All" ? `&difficulty=${difficulty}` : "";
-    const url = `http://127.0.0.1:8000/challenges?${courseParam}${diffParam}`;
+    const url = `${API_BASE}/challenges?${courseParam}${diffParam}`;
     
     fetch(url)
       .then(res => res.json())
@@ -53,7 +54,7 @@ function CodingPractice() {
 
   const fetchHistory = () => {
     const courseParam = selectedCourse?.id ? `?course_id=${selectedCourse.id}` : "";
-    fetch(`http://127.0.0.1:8000/history/${username}${courseParam}`)
+    fetch(`${API_BASE}/history/${username}${courseParam}`)
       .then(res => res.json())
       .then(data => setHistory(Array.isArray(data) ? data : []));
   };
@@ -67,7 +68,7 @@ function CodingPractice() {
 
   const handleRunCode = (isSubmit = false) => {
     setLoading(true);
-    fetch("http://127.0.0.1:8000/coding/run", {
+    fetch(API_BASE + "/coding/run", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

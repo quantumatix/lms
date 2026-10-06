@@ -10,6 +10,7 @@ import {
   BrainCircuit
 } from "lucide-react";
 import { useCourse } from "../context/CourseContext";
+import { API_BASE } from "../config";
 
 function MCQTest() {
   const [questions, setQuestions] = useState([]);
@@ -22,7 +23,7 @@ function MCQTest() {
   useEffect(() => {
     setLoading(true);
     const courseParam = selectedCourse?.id ? `?course_id=${selectedCourse.id}` : "";
-    fetch(`http://127.0.0.1:8000/mcq${courseParam}`)
+    fetch(`${API_BASE}/mcq${courseParam}`)
       .then((res) => res.json())
       .then((data) => {
         setQuestions(Array.isArray(data) ? data : []);
@@ -53,7 +54,7 @@ function MCQTest() {
       if (answers[q.id] === q.answer) {
         totalScore++;
       } else {
-        await fetch("http://127.0.0.1:8000/save-mistake", {
+        await fetch(API_BASE + "/save-mistake", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -73,7 +74,7 @@ function MCQTest() {
 
     // Save final stats
     try {
-      await fetch("http://127.0.0.1:8000/save-mcq-score", {
+      await fetch(API_BASE + "/save-mcq-score", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -85,7 +86,7 @@ function MCQTest() {
       });
 
       if (totalScore > 0) {
-        await fetch(`http://127.0.0.1:8000/add-xp/${username}/20?course_id=${courseId}`);
+        await fetch(`${API_BASE}/add-xp/${username}/20?course_id=${courseId}`);
       }
     } catch (error) {
       console.log(error);

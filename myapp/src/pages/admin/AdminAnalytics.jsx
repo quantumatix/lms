@@ -5,6 +5,7 @@ import {
   PieChart, Pie, Cell, AreaChart, Area, Legend
 } from "recharts";
 import { TrendingUp, Users, CheckCircle, Target, Award, Zap } from "lucide-react";
+import { API_BASE } from "../../config";
 
 const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#0ea5e9", "#ec4899", "#14b8a6"];
 
@@ -42,11 +43,11 @@ function AdminAnalytics() {
     const headers = { "Content-Type": "application/json" };
 
     Promise.all([
-      fetch("http://127.0.0.1:8000/admin/analytics/lesson-completion").then(r => r.json()),
-      fetch("http://127.0.0.1:8000/admin/analytics/student-performance").then(r => r.json()),
-      fetch("http://127.0.0.1:8000/admin/analytics/quiz-accuracy").then(r => r.json()),
-      fetch("http://127.0.0.1:8000/admin/stats").then(r => r.json()),
-      fetch("http://127.0.0.1:8000/admin/coding-practice/analytics").then(r => r.json()).catch(() => ({}))
+      fetch(API_BASE + "/admin/analytics/lesson-completion").then(r => r.json()),
+      fetch(API_BASE + "/admin/analytics/student-performance").then(r => r.json()),
+      fetch(API_BASE + "/admin/analytics/quiz-accuracy").then(r => r.json()),
+      fetch(API_BASE + "/admin/stats").then(r => r.json()),
+      fetch(API_BASE + "/admin/coding-practice/analytics").then(r => r.json()).catch(() => ({}))
     ])
       .then(([completion, performance, accuracy, statsData, codingData]) => {
         setLessonCompletion(Array.isArray(completion) ? completion : []);

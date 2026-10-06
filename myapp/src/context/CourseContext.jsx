@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
+import { API_BASE } from "../config";
 
 const CourseContext = createContext(null);
 
@@ -23,7 +24,7 @@ export function CourseProvider({ children }) {
   const [courses, setCourses] = useState([DEFAULT_COURSE]);
 
   const fetchCourseList = () => {
-    fetch("http://127.0.0.1:8000/courses")
+    fetch(API_BASE + "/courses")
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data) && data.length > 0) {

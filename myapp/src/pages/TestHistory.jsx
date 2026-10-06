@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { API_BASE } from "../config";
 
 function TestHistory() {
 
@@ -10,7 +11,7 @@ function TestHistory() {
       localStorage.getItem("username");
 
     fetch(
-      `http://127.0.0.1:8000/history/${username}`
+      `${API_BASE}/history/${username}`
     )
       .then((res) => res.json())
       .then((data) => setHistory(data))

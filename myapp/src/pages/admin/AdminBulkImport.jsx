@@ -2,6 +2,7 @@ import { useState } from "react";
 import AdminLayout from "../../components/AdminLayout";
 import { Toast, useToast } from "../../components/Toast";
 import { Upload, FileCode, AlertCircle, CheckCircle2 } from "lucide-react";
+import { API_BASE } from "../../config";
 
 function AdminBulkImport() {
   const { toasts, addToast, removeToast } = useToast();
@@ -12,7 +13,7 @@ function AdminBulkImport() {
     try {
       setLoading(true);
       const parsedData = JSON.parse(jsonInput);
-      const response = await fetch("http://127.0.0.1:8000/admin/bulk-import", {
+      const response = await fetch(API_BASE + "/admin/bulk-import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(parsedData)

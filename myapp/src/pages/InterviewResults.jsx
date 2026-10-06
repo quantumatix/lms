@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import { useCourse } from "../context/CourseContext";
 import { FileText, Calendar, ChevronRight, Award, AlertCircle, Sparkles } from "lucide-react";
+import { API_BASE } from "../config";
 
 function InterviewResults() {
   const navigate = useNavigate();
@@ -25,7 +26,7 @@ function InterviewResults() {
     const fetchResults = async () => {
       try {
         const courseParam = selectedCourse?.id ? `&course_id=${selectedCourse.id}` : "";
-        const res = await fetch(`http://127.0.0.1:8000/interview/results?username=${username}${courseParam}`);
+        const res = await fetch(`${API_BASE}/interview/results?username=${username}${courseParam}`);
         if (!res.ok) {
           throw new Error("Failed to load interview results.");
         }

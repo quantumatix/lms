@@ -42,3 +42,8 @@ tmp/
 **/tmp/
 *.tmp
 *.temp
+
+# Deployment
+venv/
+**/venv/
+.deploy_port

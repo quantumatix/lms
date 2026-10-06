@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import AdminLayout from "../../components/AdminLayout";
 import { Toast, useToast } from "../../components/Toast";
 import { Plus, Edit, Trash2, Save, X, MessageSquare, List, Sparkles, BookOpen, Filter } from "lucide-react";
+import { API_BASE } from "../../config";
 
 const inputStyle = {
   width: "100%", padding: "10px 14px", border: "1.5px solid #e5e7eb",
@@ -29,7 +30,7 @@ function AdminInterview() {
 
   // 1. Fetch courses on mount
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/admin/courses")
+    fetch(API_BASE + "/admin/courses")
       .then(r => r.json())
       .then(d => {
         if (Array.isArray(d) && d.length > 0) {
@@ -49,7 +50,7 @@ function AdminInterview() {
   const fetchQuestions = (courseId = selectedCourseId, category = selectedCategoryFilter) => {
     if (!courseId) return;
     setLoading(true);
-    let url = `http://127.0.0.1:8000/admin/interview-questions?course_id=${courseId}`;
+    let url = `${API_BASE}/admin/interview-questions?course_id=${courseId}`;
     if (category) {
       url += `&category=${encodeURIComponent(category)}`;
     }
@@ -72,7 +73,7 @@ function AdminInterview() {
       return;
     }
     setGeneratingAI(true);
-    fetch("http://127.0.0.1:8000/admin/ai/generate-interview-questions", {
+    fetch(API_BASE + "/admin/ai/generate-interview-questions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -134,7 +135,7 @@ function AdminInterview() {
 
     if (editIndex !== null) {
       // Update existing
-      fetch(`http://127.0.0.1:8000/admin/interview-questions/${payload.id}`, {
+      fetch(`${API_BASE}/admin/interview-questions/${payload.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -146,7 +147,7 @@ function AdminInterview() {
       }).catch(() => addToast("Failed to update question", "error"));
     } else {
       // Add new
-      fetch("http://127.0.0.1:8000/admin/interview-questions", {
+      fetch(API_BASE + "/admin/interview-questions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -161,7 +162,7 @@ function AdminInterview() {
 
   const handleDelete = (id) => {
     if (window.confirm("Delete this question?")) {
-      fetch(`http://127.0.0.1:8000/admin/interview-questions/${id}`, {
+      fetch(`${API_BASE}/admin/interview-questions/${id}`, {
         method: "DELETE"
       }).then((res) => { 
           if (!res.ok) throw new Error("Failed");

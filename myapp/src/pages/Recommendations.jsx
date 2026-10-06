@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { API_BASE } from "../config";
 
 function Recommendations() {
 
@@ -11,7 +12,7 @@ const username =
   localStorage.getItem("username");
 
 fetch(
-  `http://127.0.0.1:8000/progress/${username}`
+  `${API_BASE}/progress/${username}`
 )
   .then((res) => res.json())
   .then((data) => {

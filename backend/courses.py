@@ -4,6 +4,7 @@ Handles CRUD for courses (student-facing + admin-facing).
 """
 
 from fastapi import APIRouter, HTTPException
+import os
 from pymongo import MongoClient
 from datetime import datetime
 from typing import Optional
@@ -11,7 +12,7 @@ from pydantic import BaseModel
 
 router = APIRouter()
 
-client = MongoClient("mongodb://localhost:27017")
+client = MongoClient(os.getenv("MONGO_URI", "mongodb://localhost:27017"))
 db = client["lms_database"]
 courses_collection = db["courses"]
 

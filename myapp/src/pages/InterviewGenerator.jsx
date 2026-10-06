@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import { Sparkles, Brain, AlertCircle, Loader2 } from "lucide-react";
 import { useCourse } from "../context/CourseContext";
+import { API_BASE } from "../config";
 
 function InterviewGenerator() {
   const navigate = useNavigate();
@@ -28,7 +29,7 @@ function InterviewGenerator() {
     setInterviewData(null);
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/interview/generate", {
+      const response = await fetch(API_BASE + "/interview/generate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

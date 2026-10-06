@@ -10,7 +10,7 @@ import time
 
 router = APIRouter()
 
-client = MongoClient("mongodb://localhost:27017")
+client = MongoClient(os.getenv("MONGO_URI", "mongodb://localhost:27017"))
 db = client["lms_database"]
 coding_challenges = db["coding_challenges"]
 history_collection = db["practice_history"]

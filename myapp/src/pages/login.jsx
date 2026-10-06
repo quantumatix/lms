@@ -15,6 +15,7 @@ import {
   Zap,
   BookOpen
 } from "lucide-react";
+import { API_BASE } from "../config";
 
 function Login() {
   const navigate = useNavigate();
@@ -36,7 +37,7 @@ function Login() {
     setMessage({ text: "", type: "" });
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/login", {
+      const response = await fetch(API_BASE + "/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

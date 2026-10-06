@@ -12,7 +12,7 @@ import services.gemini_service as gemini
 import services.openai_service as openai_svc
 from pymongo import MongoClient
 
-_mongo_client = MongoClient("mongodb://localhost:27017")
+_mongo_client = MongoClient(os.getenv("MONGO_URI", "mongodb://localhost:27017"))
 _db = _mongo_client["lms_database"]
 
 

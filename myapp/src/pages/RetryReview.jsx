@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { API_BASE } from "../config";
 
 function RetryReview() {
 
@@ -9,7 +10,7 @@ function RetryReview() {
     const username = "ayush";
 
     fetch(
-      `http://127.0.0.1:8000/retry-review/${username}`
+      `${API_BASE}/retry-review/${username}`
     )
       .then((res) => res.json())
       .then((data) => setMistakes(data))

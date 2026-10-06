@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { API_BASE } from "../config";
 
 function DailyReview() {
 
@@ -12,7 +13,7 @@ useEffect(() => {
 
 
 fetch(
-  `http://127.0.0.1:8000/daily-review/${username}`
+  `${API_BASE}/daily-review/${username}`
 )
   .then((res) => res.json())
   .then((data) => setQuestions(data));
@@ -49,7 +50,7 @@ questions.forEach((q, index) => {
 setScore(total);
 
 await fetch(
-  `http://127.0.0.1:8000/add-xp/${username}/10`
+  `${API_BASE}/add-xp/${username}/10`
 );
 
 alert("🎉 Daily Review Completed! +10 XP");

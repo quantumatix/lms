@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import AdminLayout from "../../components/AdminLayout";
 import { Toast, useToast } from "../../components/Toast";
 import { Plus, Edit, Trash2, HelpCircle, Save, X, Sparkles, BookOpen } from "lucide-react";
+import { API_BASE } from "../../config";
 
 const inputStyle = {
   width: "100%", padding: "10px 14px", border: "1.5px solid #e5e7eb",
@@ -28,7 +29,7 @@ function AdminQuestions() {
 
   // 1. Fetch all courses on mount
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/admin/courses")
+    fetch(API_BASE + "/admin/courses")
       .then(r => r.json())
       .then(d => {
         if (Array.isArray(d) && d.length > 0) {
@@ -47,7 +48,7 @@ function AdminQuestions() {
     setQuestions([]);
     setLessons([]);
 
-    fetch(`http://127.0.0.1:8000/admin/lessons?course_id=${selectedCourseId}`)
+    fetch(`${API_BASE}/admin/lessons?course_id=${selectedCourseId}`)
       .then(r => r.json())
       .then(d => {
         const courseLessons = Array.isArray(d) ? d : [];
@@ -71,7 +72,7 @@ function AdminQuestions() {
   const fetchQuestions = () => {
     if (!selectedLessonId) return;
     setLoading(true);
-    fetch(`http://127.0.0.1:8000/lessons/${selectedLessonId}?username=admin@lms.com`)
+    fetch(`${API_BASE}/lessons/${selectedLessonId}?username=admin@lms.com`)
       .then(r => r.json())
       .then(d => { 
         setQuestions(d.mcq_quiz || []); 
@@ -87,7 +88,7 @@ function AdminQuestions() {
     const targetDiff = currentLesson ? currentLesson.difficulty : "Beginner";
     
     setGenerating(true);
-    fetch("http://127.0.0.1:8000/admin/ai/generate-mcq", {
+    fetch(API_BASE + "/admin/ai/generate-mcq", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -131,7 +132,7 @@ function AdminQuestions() {
     if (editIndex !== null) updated[editIndex] = formData;
     else updated.push(formData);
 
-    fetch(`http://127.0.0.1:8000/admin/lessons/${selectedLessonId}`, {
+    fetch(`${API_BASE}/admin/lessons/${selectedLessonId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ mcq_quiz: updated })
@@ -146,7 +147,7 @@ function AdminQuestions() {
     if (!selectedLessonId) return;
     if (window.confirm("Delete this question?")) {
       const updated = questions.filter((_, i) => i !== index);
-      fetch(`http://127.0.0.1:8000/admin/lessons/${selectedLessonId}`, {
+      fetch(`${API_BASE}/admin/lessons/${selectedLessonId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mcq_quiz: updated })

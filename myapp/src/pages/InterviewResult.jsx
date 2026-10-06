@@ -5,6 +5,7 @@ import {
   ArrowLeft, Award, Calendar, MessageSquare, ShieldAlert, BookOpen, 
   Sparkles, CheckCircle2, AlertCircle, Heart, Star, Compass
 } from "lucide-react";
+import { API_BASE } from "../config";
 
 function InterviewResult() {
   const { interviewId } = useParams();
@@ -29,7 +30,7 @@ function InterviewResult() {
 
     const fetchResult = async () => {
       try {
-        const res = await fetch(`http://127.0.0.1:8000/interview/result/${interviewId}?username=${username}`);
+        const res = await fetch(`${API_BASE}/interview/result/${interviewId}?username=${username}`);
         if (!res.ok) {
           throw new Error("Unable to retrieve evaluation report. It may still be generating.");
         }

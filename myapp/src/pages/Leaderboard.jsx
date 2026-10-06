@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { API_BASE } from "../config";
 
 function Leaderboard() {
 
@@ -7,7 +8,7 @@ const [students, setStudents] = useState([]);
 useEffect(() => {
 
 
-fetch("http://127.0.0.1:8000/leaderboard")
+fetch(API_BASE + "/leaderboard")
   .then((res) => res.json())
   .then((data) => {
     setStudents(data);

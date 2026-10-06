@@ -1,11 +1,12 @@
 from fastapi import APIRouter, HTTPException
+import os
 from pymongo import MongoClient
 import random
 from datetime import datetime
 
 router = APIRouter()
 
-client = MongoClient("mongodb://localhost:27017")
+client = MongoClient(os.getenv("MONGO_URI", "mongodb://localhost:27017"))
 db = client["lms_database"]
 questions_collection = db["interview_questions"]
 mock_sessions_collection = db["mock_interviews"]
