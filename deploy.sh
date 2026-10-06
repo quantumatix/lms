@@ -477,11 +477,24 @@ smoke_test() {
   step "Smoke test through nginx"
   local scheme=http port=80
   $SUDO test -f "$LE_DIR/fullchain.pem" && scheme=https port=443
-  local url="$scheme://$DOMAIN" out
-  out="$(curl -fsS --resolve "$DOMAIN:$port:127.0.0.1" "$url/api/" || true)"
-  [[ $out == *"LMS Backend"* ]] || die "$url/api/ did not reach the backend through nginx"
-  out="$(curl -fsS --resolve "$DOMAIN:$port:127.0.0.1" "$url/" || true)"
-  [[ $out == *'id="root"'* ]] || die "$url/ did not serve the frontend"
+  local url="$scheme://$DOMAIN" api="" page="" i
+  # 'systemctl reload nginx' returns before the new config is live; for a moment the old
+  # workers still answer (e.g. with another site's certificate), so retry briefly.
+  for ((i = 0; i < 15; i++)); do
+    api="$(curl -fsS --resolve "$DOMAIN:$port:127.0.0.1" "$url/api/" 2>/dev/null || true)"
+    page="$(curl -fsS --resolve "$DOMAIN:$port:127.0.0.1" "$url/" 2>/dev/null || true)"
+    [[ $api == *"LMS Backend"* && $page == *'id="root"'* ]] && break
+    sleep 1
+  done
+  if [[ $api != *"LMS Backend"* ]]; then
+    curl -sS --resolve "$DOMAIN:$port:127.0.0.1" "$url/api/" -o /dev/null || true
+    if [[ $scheme == https ]]; then
+      info "certificate nginx serves for $DOMAIN: $(openssl s_client -connect 127.0.0.1:443 -servername "$DOMAIN" </dev/null 2>/dev/null \
+        | openssl x509 -noout -subject 2>/dev/null || echo unknown)"
+    fi
+    die "$url/api/ did not reach the backend through nginx"
+  fi
+  [[ $page == *'id="root"'* ]] || die "$url/ did not serve the frontend"
   info "frontend and /api OK"
 
   printf '\n%sDeployed:%s %s\n' "$C_OK" "$C_OFF" "$url"
